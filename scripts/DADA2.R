@@ -1,0 +1,450 @@
+#!/usr/bin/env Rscript
+
+#############
+## MESSAGE ##
+#############
+
+cat('  ____ ___  __  __ ____  _   _ _____ ___ _   _  ____    ___  ____   ____    _    _   _ ___ ____  __  __   ___ ____  _____ _   _ _____ ___ _______   __\n / ___/ _ \\|  \\/  |  _ \\| | | |_   _|_ _| \\ | |/ ___|  / _ \\|  _ \\ / ___|  / \\  | \\ | |_ _/ ___||  \\/  | |_ _|  _ \\| ____| \\ | |_   _|_ _|_   _\\ \\ / /\n| |  | | | | |\\/| | |_) | | | | | |  | ||  \\| | |  _  | | | | |_) | |  _  / _ \\ |  \\| || |\\___ \\| |\\/| |  | || | | |  _| |  \\| | | |  | |  | |  \\ V / \n| |__| |_| | |  | |  __/| |_| | | |  | || |\\  | |_| | | |_| |  _ <| |_| |/ ___ \\| |\\  || | ___) | |  | |  | || |_| | |___| |\\  | | |  | |  | |   | |  \n \\____\\___/|_|  |_|_|    \\___/  |_| |___|_| \\_|\\____|  \\___/|_| \\_\\\\____/_/   \\_|_| \\_|___|____/|_|  |_| |___|____/|_____|_| \\_| |_| |___| |_|   |_|  \n\n')
+
+####################################
+## Parsing command line arguments ##
+####################################
+
+suppressWarnings({
+  suppressPackageStartupMessages(library(argparse))
+})
+
+parser <- ArgumentParser(description = 'Arguments for DADA2 pipeline')
+
+parser$add_argument('-i', '--input_dir', metavar = 'dir', type = 'character', required = TRUE, help = 'Input directory path')
+parser$add_argument('-d', '--download', metavar = 'FILENAME', required = FALSE, help = 'Download data from ENA for the given accessions listed in FILENAME')
+parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify whether the script should be run once or for multiple runs. Use \'single\' to run the script once, and \'multi\' to run it multiple times.')
+parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Specify if you want to trim primers or not. Default is FALSE.')
+parser$add_argument('-s', '--rm_singleton', action = 'store_true', help = 'Specify if you want to remove singletons in the ASV table. Default is FALSE.')
+parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='Set the maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
+parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Forward and reverse primer sequences for trimming.')
+parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='Minimum length threshold for the trimmed reads. Default is 50.')
+
+args <- parser$parse_args()
+
+# Access the argument values
+mainpath <- args$input_dir
+download <- args$download
+run_mode <- args$run_mode
+trim_primers <- args$trim_primers
+trunclen <- args$trunclen
+primers <- args$primers
+minlen <- args$minlen
+rm_singleton <- args$rm_singleton
+
+# Conditions
+
+# Primers must be provided if they must be trimmed
+if(trim_primers == T & is.null(primers)){
+  cat(paste(parser$format_usage(), '\n'))
+  stop('If --trim_primers is specified, --primers must also be specified.')
+}
+
+
+#########################
+## hardcoded variables ## 
+#########################
+
+dirnames = c('01.Prefiltered', 
+             '02.Filtered_Trimmed', 
+             '03.Error_Rates', 
+             '04.Sample_Inference', 
+             '05.Merged_Reads', 
+             '06.Seq_Table')
+
+#mainpath <- '/home/guest/MyScripts/SWEDNA/DADA2Pipeline'
+#trim_primers <- FALSE
+#trunclen <- c(200, 140)
+#minlen <- 50
+#primers <- NULL
+#rm_singleton <- T
+
+
+#############################
+## DOWNLOAD ENA ACCESSIONS ##
+#############################
+
+if(!is.null(download)){
+  script_path <- commandArgs()[4]
+  script_path <- gsub(pattern = '\\\\', replacement = '/', script_path)
+  script_path <- gsub(pattern = '--file=', replacement = '', script_path)
+  
+  # Source the R-script
+  source(file.path(dirname(script_path), 'ENAFetcher.R'))
+  
+  # Set run_mode to multi
+  run_mode == 'multi'
+}
+
+
+###################################
+## SINGLE OR MULTI RUN EXECUTION ##
+###################################
+
+if (run_mode == 'single'){
+  paths = mainpath
+  loops = 1
+} else if(run_mode == 'multi'){
+  paths = list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE)
+  loops = length(paths)
+}
+
+
+###########################################
+## LOADING PACKAGES AND SOURCING SCRIPTS ##
+###########################################
+
+cat('[Step 1] Loading all packages\n')
+
+suppressPackageStartupMessages(library(dada2))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(stats))
+suppressPackageStartupMessages(library(Biostrings))
+suppressPackageStartupMessages(library(ShortRead))
+
+for(iter in 1:loops){
+  
+  # Iteration message
+  cat(paste0('\nIteration ', iter, ' out of ', loops, ': ', basename(paths[iter])))
+  
+  # Iteration label
+  label <- paste0('\n[', iter, '/', loops, ' - Step')
+  
+  ##########################
+  ## FETCHING FASTQ FILES ##
+  ##########################
+  
+  cat(paste(label, '2] Fetching fastq file paths\n'))
+  
+  # Forward and reverse read paths
+  FwdRead <- sort(list.files(paths[iter], pattern="_1.fastq", full.names = TRUE))
+  RevRead <- sort(list.files(paths[iter], pattern="_2.fastq", full.names = TRUE))
+  
+  # Extract sample names 
+  sample.names <- sapply(strsplit(basename(FwdRead), "_"), `[`, 1)
+  sample.names.check <- sapply(strsplit(basename(RevRead), "_"), `[`, 1)
+  
+  # Check if forward and reverse sample names match
+  if (length(sample.names)!= length(sample.names.check)){
+    
+    stop('Amount of forward and reverse files do not match!')
+    
+  } else {
+    
+    for (i in 1:length(sample.names)){
+      
+      if(sample.names[i] != sample.names.check[i]){
+        
+        stop(paste0('The forward read file of ', 
+                    sample.names[i], 
+                    ' matched with the reverse read file of ', 
+                    sample.names.check[i], '. Something in the main sample folder is wrong and needs to be fixed first.'))
+      }
+    }
+  }
+  
+  
+  ##################################
+  ## REMOVE PRIMERS WITH CUTADAPT ##
+  ##################################
+  
+  if (trim_primers == T){
+    
+    cat(paste(label, '3] Removing primers with cutadapt and prefiltering the reads\n\n'))
+    
+    # Make a new directory to store prefiltered sequences
+    path.cut <- file.path(paths[iter], '01.Prefiltered')
+    
+    if(!dir.exists(path.cut)){
+      dir.create(path.cut)
+    }
+    
+    # Make files to store the prefiltered sequences
+    FwdRead.cut <- file.path(path.cut, basename(FwdRead))
+    RevRead.cut <- file.path(path.cut, basename(RevRead))
+    
+    # Define forward and reverse primer AND construct the cutadapt arguments
+    FWD <- primers[1] 
+    REV <- primers[2]
+    
+    FWD.argument <- paste0('-g', ' ^', FWD)
+    REV.argument <- paste0('-G', ' ^', REV)
+    
+    # Run cutadapt
+    for(i in seq_along(FwdRead)){
+      system2('cutadapt', args = c(FWD.argument, # Define the forward read
+                                   REV.argument, # Define the reverse read
+                                   '-m 1',   # Only keep reads with a minimal length of 1,
+                                   # '--discard-untrimmed',
+                                   '-o', FwdRead.cut[i], '-p', RevRead.cut[i], # output files
+                                   FwdRead[i], RevRead[i])) # input files
+    }
+  }
+  
+  ##################################
+  ## FILTER READS BASED ON LENGTH ##
+  ##################################
+  if (trim_primers == F){
+    
+    cat(paste(label, '3] Prefiltering the reads\n'))
+    
+    # Make directory path to store prefiltered sequences
+    path.cut <- file.path(paths[iter], '01.Prefiltered')
+    
+    # Make files to store the prefiltered sequences
+    FwdRead.cut <- file.path(path.cut, basename(FwdRead))
+    RevRead.cut <- file.path(path.cut, basename(RevRead))
+    
+    length_filtered <- filterAndTrim(FwdRead, FwdRead.cut, RevRead, RevRead.cut, minLen = 1, multithread = TRUE)
+    
+    # Get the path of the forward and reverse trimmed fastq files
+    FwdRead.cut.check <- sort(list.files(path.cut, pattern="_1.fastq", full.names = TRUE))
+    RevRead.cut.check <- sort(list.files(path.cut, pattern="_2.fastq", full.names = TRUE))
+    
+    # Check if forward and reverse files match
+    if(length(FwdRead.cut.check) != length(RevRead.cut.check)){
+      stop('Something went wrong! Forward and reverse files do not match anymore!\n')
+    }
+  }
+  
+  ###################################
+  ## INSPECT READ QUALITY PROFILES ##
+  ###################################
+  
+  cat(paste(label, '4] Plotting quality of prefiltered reads\n'))
+  
+  # Forward reads
+  pdf(file = file.path(path.cut, 'QualityProfilesPreFiltered.pdf'))
+  
+  if(length(FwdRead.cut) <= 10){
+    
+    plotQualityProfile(FwdRead.cut) +
+      geom_hline(yintercept = 30) +
+      scale_color_manual(guide = "none")
+    
+  } else {
+    
+    plotQualityProfile(FwdRead.cut[1:10]) +
+      geom_hline(yintercept = 30) +
+      scale_color_manual(guide = "none")
+    
+  }
+  
+  # Reverse reads
+  if(length(RevRead.cut) <= 10){
+    
+    plotQualityProfile(RevRead.cut) +
+      geom_hline(yintercept = 30) +
+      scale_color_manual(guide = "none")
+    
+  } else {
+    
+    plotQualityProfile(RevRead.cut[1:10]) +
+      geom_hline(yintercept = 30) +
+      scale_color_manual(guide = "none")
+    
+  }
+  
+  dev.off()
+  
+  #####################
+  ## FILTER AND TRIM ##
+  #####################
+  
+  cat(paste(label, '5] Trimming the prefiltered reads\n'))
+  
+  # Make directory path to store prefiltered sequences
+  path.filt <- file.path(paths[iter], '02.Filtered_Trimmed')
+  
+  # Make files to store the trimmed sequences
+  FwdRead.filt <- file.path(path.filt, paste0(sample.names, "_1_filt.fastq.gz"))
+  RevRead.filt <- file.path(path.filt, paste0(sample.names, "_2_filt.fastq.gz"))
+  
+  names(FwdRead.filt) <- sample.names
+  names(RevRead.filt) <- sample.names
+  
+  # Trim the prefiltered reads
+  out <- filterAndTrim(FwdRead.cut,    # Input files forward reads
+                       FwdRead.filt,   # Output files forward reads
+                       RevRead.cut,    # Input files reverse reads
+                       RevRead.filt,   # Output files reverse reads
+                       truncLen=trunclen,   # Max length of the reads (F will be truncated to 200, reverse to 140)
+                       maxN=0,              # Amount of ambiguous reads that are allowed
+                       maxEE=c(2,4),        # Maximum error rates for F and R read
+                       truncQ=2,            # Minimum quality score that each base should have
+                       minLen = minlen,     # Minimum length of the reads after trimming
+                       rm.phix=TRUE,        # Remove contaminant reads
+                       compress=TRUE,       # Output files are compressed
+                       multithread = T)     # On Windows set multithread = FALSE
+  
+  saveRDS(out, file.path(path.filt, 'Filtered_Trimmed_Logfile.rds'))
+  
+  
+  ####################################################
+  ## INSPECT READ QUALITY PROFILES OF TRIMMED READS ##
+  ####################################################
+  
+  cat(paste(label, '6] Plotting quality of trimmed reads\n'))
+  
+  pdf(file = file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf'))
+  
+  # Forward reads
+  if(length(FwdRead.filt) <= 10){
+    
+    plotQualityProfile(FwdRead.filt) +
+      geom_hline(yintercept = 30)
+    
+  } else {
+    
+    plotQualityProfile(FwdRead.filt[1:10]) +
+      geom_hline(yintercept = 30)
+    
+  }
+  
+  # Reverse reads
+  if(length(RevRead.filt) <= 10){
+    
+    plotQualityProfile(RevRead.filt) +
+      geom_hline(yintercept = 30) +
+      scale_color_manual(guide = "none")
+    
+  } else {
+    
+    plotQualityProfile(RevRead.filt[1:10]) +
+      geom_hline(yintercept = 30) +
+      scale_color_manual(guide = "none")
+    
+  }
+  
+  dev.off()
+  
+  
+  ########################
+  ## Learn the Error Rates
+  ########################
+  
+  cat(paste(label, '7] Learning error rates\n'))
+  
+  # Make directory path to store the error plots
+  path.error <- file.path(paths[iter], '03.Error_Rates')
+  
+  if(!dir.exists(path.error)){
+    cat(paste('Creating output directory:', path.error,'\n'))
+    dir.create(path.error)
+  }
+  
+  # Learn the error rates
+  set.seed(100)
+  
+  errF <- learnErrors(FwdRead.filt, multithread=TRUE)
+  errR <- learnErrors(RevRead.filt, multithread=TRUE)
+  
+  # Construct and store the error plots
+  pdf(file = file.path(path.error, paste0(sample.names[1], '.pdf')))
+  plotErrors(errF, nominalQ=TRUE)
+  plotErrors(errR, nominalQ=TRUE)
+  dev.off()
+  
+  
+  ######################
+  ## SAMPLE INFERENCE ##
+  ######################
+  
+  cat(paste(label, '8] Inferring sample\n'))
+  
+  # Make directory path to store the dada objects
+  path.infer <- file.path(paths[iter], '04.Sample_Inference')
+  
+  if(!dir.exists(path.infer)){
+    cat(paste('Creating output directory:', path.infer, '\n'))
+    dir.create(path.infer)
+  }
+  
+  # Infer the samples
+  dadaFwd <- dada(FwdRead.filt, err=errF, multithread=TRUE, pool = "pseudo")
+  cat('\n\n')
+  dadaRev <- dada(RevRead.filt, err=errR, multithread=TRUE, pool = "pseudo")
+  
+  # Store the dada objects
+  saveRDS(dadaFwd, file.path(path.infer, 'dadaFwd.rds'))
+  saveRDS(dadaRev, file.path(path.infer, 'dadaRev.rds'))
+  
+  
+  ########################
+  ## MERGE PAIRED READS ##
+  ########################
+  
+  cat(paste('\n', label, '9] Merging paired reads\n'))
+  
+  # Make directory path to store the merger object
+  path.merge <- file.path(paths[iter], '05.Merged_Reads')
+  
+  if(!dir.exists(path.merge)){
+    cat(paste('Creating output directory:', path.merge, '\n'))
+    dir.create(path.merge)
+  }
+  
+  # Merge the paired reads
+  mergers <- mergePairs(dadaFwd, FwdRead.filt, dadaRev, RevRead.filt, minOverlap = 10, maxMismatch = 1, verbose=TRUE)
+  
+  # Write mergers object to an rds file
+  saveRDS(mergers, file.path(path.merge, 'mergers.rds'))
+  
+  
+  ###########################
+  ## Construct sequence table
+  ###########################
+  
+  cat(paste(label, '10] Constructing sequence tables\n'))
+  
+  # Make directory path to store COI ASV sequences
+  path.seq <- file.path(paths[iter], '06.Seq_Table')
+  
+  if(!dir.exists(path.seq)){
+    cat(paste('Creating output directory:', path.seq, '\n'))
+    dir.create(path.seq)
+  }
+  
+  # Construct the sequence table
+  seqtab <- makeSequenceTable(mergers)
+  
+  
+  #####################
+  ## REMOVE CHIMERAS ##
+  #####################
+  
+  cat(paste(label, '11] Removing chimeras\n'))
+  
+  # Remove chimeras
+  seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+  
+  # Remove singletons
+  if (rm_singleton == T){
+    cat(paste(label, '12] Removing singletons\n'))
+    
+    mode(seqtab.nochim) = 'numeric'
+    seqtab.nochim <- seqtab.nochim[,colSums(seqtab.nochim) > 1]
+  }
+  
+  # Get ASV sequences
+  asv_seqs <- colnames(seqtab.nochim)
+  
+  # Produce ASV headers
+  asv_headers <- vector(dim(seqtab.nochim)[2], mode = 'character')
+  
+  for (i in 1:dim(seqtab.nochim)[2]){
+    asv_headers[i] <- paste0('>', basename(paths[iter]), ';ASV', i)
+  }
+  
+  # Combine ASV sequences and headers
+  asv_fasta <- c(rbind(asv_headers, asv_seqs))
+  
+  # write ASV sequences and headers to a text and rds file
+  write(asv_fasta, file.path(path.seq, 'COI_ASVS.txt'))
+  saveRDS(path.seq, 'seqtab.rds')
+}
