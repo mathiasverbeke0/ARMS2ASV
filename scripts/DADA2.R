@@ -16,7 +16,7 @@ suppressWarnings({
 
 parser <- ArgumentParser(description = 'Arguments for DADA2 pipeline')
 
-parser$add_argument('-i', '--input_dir', metavar = 'dir', type = 'character', required = TRUE, help = 'Input directory path')
+parser$add_argument('-b', '--base_dir', metavar = 'dir', type = 'character', required = TRUE, help = 'Base directory path')
 parser$add_argument('-d', '--download', metavar = 'FILENAME', required = FALSE, help = 'Download data from ENA for the given accessions listed in FILENAME')
 parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify whether the script should be run once or for multiple runs. Use \'single\' to run the script once, and \'multi\' to run it multiple times.')
 parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Specify if you want to trim primers or not. Default is FALSE.')
@@ -24,11 +24,14 @@ parser$add_argument('-s', '--rm_singleton', action = 'store_true', help = 'Speci
 parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='Set the maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
 parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Forward and reverse primer sequences for trimming.')
 parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='Minimum length threshold for the trimmed reads. Default is 50.')
+parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using boldigger.')
+parser$add_argument('-u', '--user', type = 'character', required = FALSE, help = 'BOLDSYSTEMS user ID')
+parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'BOLDSYSTEMS password')
 
 args <- parser$parse_args()
 
 # Access the argument values
-mainpath <- args$input_dir
+mainpath <- args$base_dir
 download <- args$download
 run_mode <- args$run_mode
 trim_primers <- args$trim_primers
@@ -36,8 +39,14 @@ trunclen <- args$trunclen
 primers <- args$primers
 minlen <- args$minlen
 rm_singleton <- args$rm_singleton
+boldigger <- args$BOLDigger
+user <- args$user
+password <- args$password
 
-# Conditions
+
+#############################
+## COMMAND LINE CONDITIONS ##
+#############################
 
 # Primers must be provided if they must be trimmed
 if(trim_primers == T & is.null(primers)){
@@ -45,6 +54,11 @@ if(trim_primers == T & is.null(primers)){
   stop('If --trim_primers is specified, --primers must also be specified.')
 }
 
+# Taxonomic classification with boldigger requires username and password
+if(boldigger == T & (is.null(password) | is.null(user))){
+  cat(paste(parser$format_usage(), '\n'))
+  stop('If --BOLDigger is specified, --user and --password also need to be specified.')
+}
 
 #########################
 ## hardcoded variables ## 
@@ -78,7 +92,7 @@ if(!is.null(download)){
   source(file.path(dirname(script_path), 'ENAFetcher.R'))
   
   # Set run_mode to multi
-  run_mode == 'multi'
+  run_mode = 'multi'
 }
 
 
@@ -88,10 +102,8 @@ if(!is.null(download)){
 
 if (run_mode == 'single'){
   paths = mainpath
-  loops = 1
 } else if(run_mode == 'multi'){
   paths = list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE)
-  loops = length(paths)
 }
 
 
@@ -99,21 +111,22 @@ if (run_mode == 'single'){
 ## LOADING PACKAGES AND SOURCING SCRIPTS ##
 ###########################################
 
-cat('[Step 1] Loading all packages\n')
+cat('\n[Step 1] Loading all packages\n')
 
 suppressPackageStartupMessages(library(dada2))
 suppressPackageStartupMessages(library(ggplot2))
 suppressPackageStartupMessages(library(stats))
 suppressPackageStartupMessages(library(Biostrings))
 suppressPackageStartupMessages(library(ShortRead))
+suppressPackageStartupMessages(library(xlsx))
 
-for(iter in 1:loops){
+for(iter in 1:length(paths)){
   
   # Iteration message
-  cat(paste0('\nIteration ', iter, ' out of ', loops, ': ', basename(paths[iter])))
+  cat(paste0('\nIteration ', iter, ' out of ', length(paths), ': ', basename(paths[iter])))
   
   # Iteration label
-  label <- paste0('\n[', iter, '/', loops, ' - Step')
+  label <- paste0('\n[', iter, '/', length(paths), ' - Step')
   
   ##########################
   ## FETCHING FASTQ FILES ##
@@ -324,9 +337,9 @@ for(iter in 1:loops){
   dev.off()
   
   
-  ########################
-  ## Learn the Error Rates
-  ########################
+  ###########################
+  ## LEARN THE ERROR RATES ##
+  ###########################
   
   cat(paste(label, '7] Learning error rates\n'))
   
@@ -396,9 +409,9 @@ for(iter in 1:loops){
   saveRDS(mergers, file.path(path.merge, 'mergers.rds'))
   
   
-  ###########################
-  ## Construct sequence table
-  ###########################
+  ##############################
+  ## CONSTRUCT SEQUENCE TABLE ##
+  ##############################
   
   cat(paste(label, '10] Constructing sequence tables\n'))
   
@@ -445,6 +458,42 @@ for(iter in 1:loops){
   asv_fasta <- c(rbind(asv_headers, asv_seqs))
   
   # write ASV sequences and headers to a text and rds file
-  write(asv_fasta, file.path(path.seq, 'COI_ASVS.txt'))
-  saveRDS(path.seq, 'seqtab.rds')
+  write(asv_fasta, file.path(path.seq, 'COI_ASVS.fasta'))
+  saveRDS(seqtab.nochim, file.path(path.seq, 'seqtab.rds'))
+}
+
+
+##############################
+## TAXONOMIC CLASSIFICATION ##
+##############################
+
+cat(paste('\n[12] Assigning taxonomy\n'))
+
+ASV_paths <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')
+
+for(iter in 1:length(paths)){
+  
+  path.taxon <- file.path(paths[iter], '07.Taxonomy')
+  
+  if(!dir.exists(path.taxon)){
+    cat(paste('Creating output directory:', path.taxon, '\n'))
+    dir.create(path.taxon)
+  }
+  
+  # Taxonomic classification with BOLDigger
+  if(boldigger == T){
+    system2(command = 'boldigger-cline', args = c('ie_coi', 
+                                                  'mathiasverbeke', 
+                                                  'BBD936vjl', 
+                                                  ASV_paths[iter], 
+                                                  path.taxon))
+    
+    system2(command = 'boldigger-cline', args = c('first_hit',
+                                                  file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx')
+                                                  )
+    )
+    
+    bold_taxonomy <- read.xlsx(file = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit')
+    write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLD.xlsx'))
+  }
 }
