@@ -8,12 +8,12 @@ if(basename(download) == download){
   download = file.path(mainpath, download)
 }
 
-data = read.table(file = download)
+data = readLines(download, warn = F)
 
 runs_samples <- list()
 current_run <- NULL
 
-for(run in data[,'V1']){
+for(run in data){
   
   run = gsub(pattern = ' ', replacement = '', run) 
   
