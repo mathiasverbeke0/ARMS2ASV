@@ -45,9 +45,18 @@ user <- args$user
 password <- args$password
 
 
-#############################
-## COMMAND LINE CONDITIONS ##
-#############################
+########################################
+## COMMAND LINE CONDITIONS AND CHECKS ##
+########################################
+
+# Mainpath must be existing directory
+file_info <- file.info('~/Traineeship/ARMSProject/scripts/pipeline/ReefPipe.R')
+
+if(is.na(file_info$isdir)){
+  stop(paste(mainpath, 'does not exist.'))
+} else if (file_info$isdir == F){
+  stop(paste(mainpath, 'does not exist.'))
+}
 
 # Primers must be provided if they must be trimmed
 if(trim_primers == T & is.null(primers)){
