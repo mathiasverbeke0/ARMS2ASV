@@ -1,5 +1,4 @@
 import requests
-import json
 from Bio import SeqIO
 from tqdm import tqdm
 import argparse
@@ -16,37 +15,45 @@ parser.add_argument('-o', '--output', required = True, help = 'Multifasta output
 args = parser.parse_args()
 
 # Variables for end message
-s = 0
 l = 0
 n = 0
 
 # WORMFetch Function
 def WORMFetch(record):
-        # Create list of all levels in the description line
+        # Create list of all levels in a single description line
         level_list = record.description.split(';')
-        sequence = record.seq
         
-        global s 
-        s += 1
+        # Fetch the sequence
+        sequence = record.seq
+
+        # Remove empty strings from the list
+        level_list = [level for level in level_list if level != '']
 
         flag = False
 
+        # Iterate over every level (i.e. rank) in the level_list
         for level in level_list:
             
             scientific_name = level
 
+            # Construct the link that will be used to query WORMS
             url = f'http://www.marinespecies.org/rest/AphiaRecordsByMatchNames?scientificnames[]={scientific_name}'
 
-            response = requests.get(url)
+            # Send request to WORMS, wait a maximum of 100 seconds
+            response = requests.get(url, timeout = 100)
 
             try:
+                # Decode the response from WORMS
                 data = response.json()[0][0]
 
+            # If the response does not contain any info, go to the next level (i.e. rank)
             except Exception as e:
                 continue
-
+                
+            # If the rank in the acquired data equals species, extract the lineage from the response
             if data['rank'] == 'Species':
                 
+                # Set the flag to indicate that a species hit was found
                 flag = True
 
                 Kingdom = data['kingdom'] 
@@ -64,7 +71,7 @@ def WORMFetch(record):
         
         else: 
             # Extract strings with 2 or more words from the level_list
-            # Note: species names consist out of 2 or more words
+            # Note: Most species names consist out of 2 or more words
             two_word_string = [s for s in level_list if len(s.split()) >= 2]
             global l 
             l += 1
@@ -77,14 +84,18 @@ def WORMFetch(record):
             # Write a backup description line and corresponding sequence to output file
             return f'>{";".join(["WORMS", "failed", "to", "find", "lineage", two_word_string[0]])}\n{sequence}\n'
 
+# Count the number of description lines in the input file
 with open(args.input, 'r') as in_file:
     tot = 0
     for line in in_file.readlines():
         if line.startswith('>'):
             tot += 1
 
+# Open the input and output file
 with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    
+    # Use multithreading to send multiple requests to WORMS at the same time 
+    with ThreadPoolExecutor(max_workers=2) as executor:
         # Submit tasks to the executor and store the future objects in a list
             futures = [executor.submit(WORMFetch, record) for record in SeqIO.parse(in_file, "fasta")]
 
@@ -93,4 +104,5 @@ with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
                 result = future.result()
                 out_file.write(result)
 
-print(f'\nSequences: {s}\nLineages not found: {l} ({round((l/s)*100,2)}%)\nSpecies not found: {n}  ({round((n/s)*100,2)}%)')
+# Print statistics after reformatting of the description lines has been performed
+print(f'\nSequences: {tot}\nLineages not found: {l} ({round((l/tot)*100,2)}%)\nSpecies not found: {n}  ({round((n/tot)*100,2)}%)')
