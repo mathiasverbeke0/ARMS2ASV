@@ -61,6 +61,29 @@ if(boldigger == T & (is.null(password) | is.null(user))){
   stop('If --BOLDigger is specified, --user and --password also need to be specified.')
 }
 
+
+############################
+## Downloading R packages ##
+############################
+
+pkg <- installed.packages()[,'Package']
+ToInstall <- c(
+  'argparse',
+  'xlsx',
+  'dada2',
+  'ggplot2',
+  'stats', 
+  'Biostrings',
+  'ShortRead',
+  'vegan'
+)
+
+for (item in ToInstall){
+  if (!item %in% pkg) {
+    install.packages(item)
+  }
+}
+
 #########################
 ## hardcoded variables ## 
 #########################
