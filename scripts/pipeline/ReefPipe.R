@@ -113,7 +113,7 @@ if(!is.null(download)){
   script_path <- gsub(pattern = '--file=', replacement = '', script_path)
   
   # Source the R-script
-  source(file.path(dirname(script_path), 'ENAFetcher.R'))
+  source(file.path(dirname(script_path), 'dependencies/ENAFetcher.R'))
   
   # Set run_mode to multi
   run_mode = 'multi'
