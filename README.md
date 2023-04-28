@@ -11,7 +11,7 @@ Before you can use this pipeline, you need to install the necessary software and
 
 2. **Install BOLDigger**: The pipeline uses the BOLDigger Python package for taxonomic classification. You can install it using pip with the following command:
 ```bash
-pip install boldigger_cline
+pip install --user boldigger_cline cutadapt
 ```
 
 3. **Clone the repository**: Clone this repository to your local machine using the following command:
