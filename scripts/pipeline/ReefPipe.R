@@ -19,14 +19,15 @@ parser <- ArgumentParser(description = 'Arguments for DADA2 pipeline')
 parser$add_argument('-b', '--base_dir', metavar = 'dir', type = 'character', required = TRUE, help = 'Base directory path')
 parser$add_argument('-d', '--download', metavar = 'FILENAME', required = FALSE, help = 'Download data from ENA for the given accessions listed in FILENAME')
 parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify whether the script should be run once or for multiple runs. Use \'single\' to run the script once, and \'multi\' to run it multiple times.')
-parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Specify if you want to trim primers or not. Default is FALSE.')
-parser$add_argument('-s', '--rm_singleton', action = 'store_true', help = 'Specify if you want to remove singletons in the ASV table. Default is FALSE.')
-parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='Set the maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
-parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Forward and reverse primer sequences for trimming.')
-parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='Minimum length threshold for the trimmed reads. Default is 50.')
-parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using boldigger.')
 parser$add_argument('-u', '--user', type = 'character', required = FALSE, help = 'BOLDSYSTEMS user ID')
 parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'BOLDSYSTEMS password')
+parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Specify if you want to trim primers or not. Default is FALSE.')
+parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Forward and reverse primer sequences for trimming.')
+parser$add_argument('-s', '--rm_singleton', action = 'store_false', help = 'Turn of singleton removal in the sequence table.')
+parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='Set the maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
+parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='Minimum length threshold for the trimmed reads. Default is 50.')
+parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using boldigger.')
+
 
 args <- parser$parse_args()
 
@@ -231,39 +232,42 @@ for(iter in 1:length(paths)){
   
   cat(paste(label, '4] Plotting quality of prefiltered reads\n'))
   
-  # Forward reads
-  pdf(file = file.path(path.cut, 'QualityProfilesPreFiltered.pdf'))
-  
-  if(length(FwdRead.cut) <= 10){
+  suppressWarnings({
     
-    plotQualityProfile(FwdRead.cut) +
-      geom_hline(yintercept = 30) +
-      scale_color_manual(guide = "none")
+    pdf(file = file.path(path.cut, 'QualityProfilesPreFiltered.pdf'))
     
-  } else {
+    # Forward reads
+    if(length(FwdRead.cut) <= 10){
+      
+      plotQualityProfile(FwdRead.cut) +
+        geom_hline(yintercept = 30) +
+        scale_color_manual(guide = "none")
+      
+    } else {
+      
+      plotQualityProfile(FwdRead.cut[1:10]) +
+        geom_hline(yintercept = 30) +
+        scale_color_manual(guide = "none")
+      
+    }
     
-    plotQualityProfile(FwdRead.cut[1:10]) +
-      geom_hline(yintercept = 30) +
-      scale_color_manual(guide = "none")
+    # Reverse reads
+    if(length(RevRead.cut) <= 10){
+      
+      plotQualityProfile(RevRead.cut) +
+        geom_hline(yintercept = 30) +
+        scale_color_manual(guide = "none")
+      
+    } else {
+      
+      plotQualityProfile(RevRead.cut[1:10]) +
+        geom_hline(yintercept = 30) +
+        scale_color_manual(guide = "none")
+      
+    }
     
-  }
-  
-  # Reverse reads
-  if(length(RevRead.cut) <= 10){
-    
-    plotQualityProfile(RevRead.cut) +
-      geom_hline(yintercept = 30) +
-      scale_color_manual(guide = "none")
-    
-  } else {
-    
-    plotQualityProfile(RevRead.cut[1:10]) +
-      geom_hline(yintercept = 30) +
-      scale_color_manual(guide = "none")
-    
-  }
-  
-  dev.off()
+    dev.off()
+  })
   
   #####################
   ## FILTER AND TRIM ##
@@ -304,37 +308,39 @@ for(iter in 1:length(paths)){
   
   cat(paste(label, '6] Plotting quality of trimmed reads\n'))
   
-  pdf(file = file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf'))
-  
-  # Forward reads
-  if(length(FwdRead.filt) <= 10){
+  suppressWarnings({
+    pdf(file = file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf'))
     
-    plotQualityProfile(FwdRead.filt) +
-      geom_hline(yintercept = 30)
+    # Forward reads
+    if(length(FwdRead.filt) <= 10){
+      
+      plotQualityProfile(FwdRead.filt) +
+        geom_hline(yintercept = 30)
+      
+    } else {
+      
+      plotQualityProfile(FwdRead.filt[1:10]) +
+        geom_hline(yintercept = 30)
+      
+    }
     
-  } else {
+    # Reverse reads
+    if(length(RevRead.filt) <= 10){
+      
+      plotQualityProfile(RevRead.filt) +
+        geom_hline(yintercept = 30) +
+        scale_color_manual(guide = "none")
+      
+    } else {
+      
+      plotQualityProfile(RevRead.filt[1:10]) +
+        geom_hline(yintercept = 30) +
+        scale_color_manual(guide = "none")
+      
+    }
     
-    plotQualityProfile(FwdRead.filt[1:10]) +
-      geom_hline(yintercept = 30)
-    
-  }
-  
-  # Reverse reads
-  if(length(RevRead.filt) <= 10){
-    
-    plotQualityProfile(RevRead.filt) +
-      geom_hline(yintercept = 30) +
-      scale_color_manual(guide = "none")
-    
-  } else {
-    
-    plotQualityProfile(RevRead.filt[1:10]) +
-      geom_hline(yintercept = 30) +
-      scale_color_manual(guide = "none")
-    
-  }
-  
-  dev.off()
+    dev.off()
+  })
   
   
   ###########################
@@ -494,6 +500,7 @@ for(iter in 1:length(paths)){
     )
     
     bold_taxonomy <- read.xlsx(file = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit')
-    write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLD.xlsx'))
+    write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLD_first_hit.xlsx'))
+    file.rename(file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), file.path(path.taxon, 'BOLD_all_hits.xlsx'))
   }
 }
