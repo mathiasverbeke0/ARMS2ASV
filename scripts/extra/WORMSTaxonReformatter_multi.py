@@ -56,12 +56,12 @@ def WORMFetch(record):
                 # Set the flag to indicate that a species hit was found
                 flag = True
 
-                Kingdom = data['kingdom'] 
-                Phylum = data['phylum']
-                Class = data['class']
-                Order = data['order']
-                Family = data['family']
-                Genus = data['genus']
+                Kingdom = str(data['kingdom'])
+                Phylum = str(data['phylum'])
+                Class = str(data['class'])
+                Order = str(data['order'])
+                Family = str(data['family'])
+                Genus = str(data['genus'])
 
                 break
         
@@ -95,7 +95,7 @@ with open(args.input, 'r') as in_file:
 with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
     
     # Use multithreading to send multiple requests to WORMS at the same time 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         # Submit tasks to the executor and store the future objects in a list
             futures = [executor.submit(WORMFetch, record) for record in SeqIO.parse(in_file, "fasta")]
 

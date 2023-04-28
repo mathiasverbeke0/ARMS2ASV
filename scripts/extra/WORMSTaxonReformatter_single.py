@@ -62,12 +62,12 @@ with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
                 # Set the flag to indicate that a species hit was found
                 flag = True
 
-                Kingdom = data['kingdom'] 
-                Phylum = data['phylum']
-                Class = data['class']
-                Order = data['order']
-                Family = data['family']
-                Genus = data['genus']
+                Kingdom = str(data['kingdom']) 
+                Phylum = str(data['phylum'])
+                Class = str(data['class'])
+                Order = str(data['order'])
+                Family = str(data['family'])
+                Genus = str(data['genus'])
 
                 break
         
