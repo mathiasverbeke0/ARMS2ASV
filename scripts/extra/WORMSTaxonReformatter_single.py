@@ -9,9 +9,21 @@ parser = argparse.ArgumentParser(description='Reformat multifasta taxonomy descr
 # Add arguments
 parser.add_argument('-i', '--input', required = True, help = 'Multifasta input file')
 parser.add_argument('-o', '--output', required = True, help = 'Multifasta output file')
+parser.add_argument('-d', '--delimiter', required = True, choices = ['colon', 'semicolon', 'pipe', 'comma'], help = 'Description line delimiter of input file')
 
 # Parse the arguments
 args = parser.parse_args()
+
+# Description line delimiter
+
+if args.delimiter == 'colon':
+     delimiter = ':'
+elif args.delimiter == 'semicolon':
+     delimiter = ';'
+elif args.delimiter == 'pipe':
+     delimiter = '|'
+elif args.delimiter == 'comma':
+    delimiter = ','
 
 # Variables for end message
 l = 0
@@ -30,7 +42,7 @@ with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
     # Loop over all description lines and corresponding sequences
     for record in tqdm(SeqIO.parse(in_file, "fasta"), total=tot):
         # Create list of all levels in the description line
-        level_list = record.description.split(';')
+        level_list = record.description.split(delimiter)
         
         # Fetch the sequence
         sequence = record.seq
