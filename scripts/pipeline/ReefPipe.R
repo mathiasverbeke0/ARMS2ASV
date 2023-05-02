@@ -8,7 +8,7 @@ cat(' ____  _____ _____ _____ ____ ___ ____  _____
 |  _ \\| ____| ____|  ___|  _ |_ _|  _ \\| ____|
 | |_) |  _| |  _| | |_  | |_) | || |_) |  _|   
 |  _ <| |___| |___|  _| |  __/| ||  __/| |___  
-|_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n\n')
+|_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n')
 
 ####################################
 ## Parsing command line arguments ##
@@ -93,7 +93,7 @@ dirnames = c('01.Prefiltered',
 
 if(!is.null(download)){
   
-  cat('[Step 0] Fetching fastq files from ENA\n')
+  cat('\n[Step 0] Fetching fastq files from ENA\n')
   
   script_path <- commandArgs()[4]
   script_path <- gsub(pattern = '\\\\', replacement = '/', script_path)
@@ -485,9 +485,8 @@ for(iter in 1:length(paths)){
   # Remove chimeras
   seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
   
-  
   # Remove singletons
-  if (rm_singleton == T){
+  if (rm_singleton == T & dim(seqtab.nochim)[1] > 1){
     cat(paste(label, '12] Removing singletons\n'))
     
     mode(seqtab.nochim) = 'numeric'
