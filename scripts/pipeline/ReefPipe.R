@@ -14,6 +14,12 @@ cat(' ____  _____ _____ _____ ____ ___ ____  _____
 ## Parsing command line arguments ##
 ####################################
 
+# Download argparse package
+if (!'argparse' %in% installed.packages()[,'Package']) {
+  install.packages('argparse')
+}
+
+# Load package
 suppressWarnings({
   suppressPackageStartupMessages(library(argparse))
 })
@@ -155,8 +161,8 @@ if (run_mode == 'single'){
 cat('\n[Step 1] Installing and loading all packages\n')
 
 pkg <- installed.packages()[,'Package']
+
 ToInstall <- c(
-  'argparse',
   'xlsx',
   'dada2',
   'ggplot2',
@@ -164,8 +170,7 @@ ToInstall <- c(
   'Biostrings',
   'ShortRead',
   'vegan',
-  'Biostrings', 
-  'xlsx'
+  'Biostrings'
 )
 
 for (item in ToInstall){
@@ -179,12 +184,13 @@ for (item in ToInstall){
 ## LOADING PACKAGES AND SOURCING SCRIPTS ##
 ###########################################
 
+suppressPackageStartupMessages(library(xlsx))
 suppressPackageStartupMessages(library(dada2))
 suppressPackageStartupMessages(library(ggplot2))
 suppressPackageStartupMessages(library(stats))
 suppressPackageStartupMessages(library(Biostrings))
 suppressPackageStartupMessages(library(ShortRead))
-suppressPackageStartupMessages(library(xlsx))
+suppressPackageStartupMessages(library(vegan))
 
 
 ########################################
@@ -239,7 +245,7 @@ for(iter in 1:length(paths)){
   
   if (trim_primers == T){
     
-    cat(paste(label, '3] Removing primers with cutadapt and prefiltering the reads\n\n'))
+    cat(paste(label, '3] Removing primers with cutadapt and prefiltering the reads\n'))
     
     # Make a new directory to store prefiltered sequences
     path.cut <- file.path(paths[iter], '01.Prefiltered')
