@@ -67,7 +67,7 @@ def WORMFetch(record):
         
         if flag == True:
             # Write the new description line and corresponding sequence to output file
-            return f'>{";".join([Kingdom, Phylum, Class, Order, Family, Genus, scientific_name])}\n{sequence}\n'
+            return f'>{";".join([Kingdom, Phylum, Class, Order, Family, Genus, scientific_name])};\n{sequence.upper()}\n'
         
         else: 
             # Extract strings with 2 or more words from the level_list
@@ -82,7 +82,7 @@ def WORMFetch(record):
                 n += 1
 
             # Write a backup description line and corresponding sequence to output file
-            return f'>{";".join(["WORMS", "failed", "to", "find", "lineage", two_word_string[0]])}\n{sequence}\n'
+            return f'>{";".join(["WORMS", "failed", "to", "find", "lineage", two_word_string[0]])};\n{sequence.upper()}\n'
 
 # Count the number of description lines in the input file
 with open(args.input, 'r') as in_file:

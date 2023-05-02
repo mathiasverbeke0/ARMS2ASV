@@ -73,7 +73,7 @@ with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
         
         if flag == True:
             # Write the new description line and corresponding sequence to output file
-            out_file.write(f'>{";".join([Kingdom, Phylum, Class, Order, Family, Genus, scientific_name])}\n{sequence}\n')
+            out_file.write(f'>{";".join([Kingdom, Phylum, Class, Order, Family, Genus, scientific_name])};\n{sequence.upper()}\n')
         
         else: 
             # Extract strings with 2 or more words from the level_list
@@ -86,7 +86,7 @@ with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
                 n+= 1
 
             # Write a backup description line and corresponding sequence to output file
-            out_file.write(f'>{";".join(["WORMS", "failed", "to", "find", "lineage", two_word_string[0]])}\n{sequence}\n')
+            out_file.write(f'>{";".join(["WORMS", "failed", "to", "find", "lineage", two_word_string[0]])};\n{sequence.upper()}\n')
 
 # Print statistics after reformatting of the description lines has been performed
 print(f'\nSequences: {tot}\nLineages not found: {l} ({round((l/tot)*100,2)}%)\nSpecies not found: {n}  ({round((n/tot)*100,2)}%)')
