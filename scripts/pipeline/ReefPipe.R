@@ -40,8 +40,10 @@ parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd'
 
 # Command line arguments for taxonomic classification
 parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using boldigger.')
-parser$add_argument('-u', '--user', type = 'character', required = FALSE, help = 'BOLDSYSTEMS user ID')
+parser$add_argument('-U', '--user', type = 'character', required = FALSE, help = 'BOLDSYSTEMS user ID')
 parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'BOLDSYSTEMS password')
+parser$add_argument('-R', '--reference', action = 'store_true', help = 'Perform taxonomic classification using own reference databases.')
+parser$add_argument('-M', '--minBoot', type = 'numeric', default = 80, help = 'The minimal bootstrap value for taxonomic classification with DADA2.')
 
 # Parse the arguments
 args <- parser$parse_args()
@@ -58,6 +60,8 @@ rm_singleton <- args$rm_singleton
 boldigger <- args$BOLDigger
 user <- args$user
 password <- args$password
+reference <- args$reference
+minBoot <- args$minBoot
 
 
 ########################################
@@ -98,17 +102,21 @@ dirnames = c('01.Prefiltered',
              '06.Seq_Table')
 
 
+###############################
+## LOCATION OF MAIN PIPELINE ##
+###############################
+
+pipeline_path <- commandArgs()[4]
+pipeline_path <- gsub(pattern = '\\\\', replacement = '/', pipeline_path)
+pipeline_path <- gsub(pattern = '--file=', replacement = '', pipeline_path)
+
+
 #############################
 ## DOWNLOAD ENA ACCESSIONS ##
 #############################
 
 if(!is.null(download)){
-  
   cat('\n[Step 0] Fetching fastq files from ENA\n')
-  
-  pipeline_path <- commandArgs()[4]
-  pipeline_path <- gsub(pattern = '\\\\', replacement = '/', pipeline_path)
-  pipeline_path <- gsub(pattern = '--file=', replacement = '', pipeline_path)
   
   # Source the R-script
   source(file.path(dirname(pipeline_path), 'dependencies/ENAFetcher.R'))
@@ -193,9 +201,14 @@ suppressPackageStartupMessages(library(ShortRead))
 suppressPackageStartupMessages(library(vegan))
 
 
-########################################
-## ITERATION FOR EVERY SEQUENCING RUN ##
-########################################
+#############################################
+## ASV GENERATION FOR EVERY SEQUENCING RUN ##
+#############################################
+
+cat('  __ _ _____   __
+ / _` / __\\ \\ / /
+| (_| \\__ \\\\ V / 
+ \\__,_|___/ \\_/  \n')
 
 for(iter in 1:length(paths)){
   
@@ -554,32 +567,87 @@ for(iter in 1:length(paths)){
 ## TAXONOMIC CLASSIFICATION ##
 ##############################
 
-if(boldigger == T){
-  cat(paste('\n[12] Assigning taxonomy\n'))
+# Check if taxonomic classification needs to be performed
+if(reference == T | boldigger == T){
   
-  for(iter in 1:length(paths)){
-    
-    # Getting path to ASV multifasta file
-    ASV_paths <- file.path(paths[iter], '06.Seq_Table/COI_ASVS.fasta')
-    
-    # Construct path to directory where taxonomy is be stored
-    path.taxon <- file.path(paths[iter], '07.Taxonomy')
-    
-    # Create directory where taxonomy is stored
+  # Taxonomy message
+  cat(' _             
+| |_ __ ___  __
+| __/ _` \\ \\/ /
+| || (_| |>  < 
+ \\__\\__,_/_/\\_\\\n\n')
+  
+  # Get paths to ASV multifasta files
+  paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')
+  
+  # Construct paths to directories where taxonomy files will be stored
+  paths.taxon <- file.path(paths, '07.Taxonomy')
+  
+  # Create directory where taxonomy is stored
+  for(path.taxon in paths.taxon){
     if(!dir.exists(path.taxon)){
       cat(paste('Creating output directory:', path.taxon, '\n'))
       dir.create(path.taxon)
     }
+  }
+  
+  
+  #############################################################
+  ## TAXONOMIC CLASSIFICATION WITH LOCAL REFERENCE DATABASES ##
+  #############################################################
+  
+  if(reference == T){
+    cat('\n[Reference libraries]')
+  
+
+    ########################################
+    ## ITERATION FOR EVERY SEQUENCING RUN ##
+    ########################################
     
-    # Taxonomic classification with BOLDigger
-    if(boldigger == T){
-      cat('\n[BOLDigger] ')
+    for(iter in 1:length(paths)){
+      
+      # Print iteration message
+      cat(paste0('\nIteration ', iter, ' out of ', length(paths), ': ', basename(paths[iter]), '\n'))
+      
+      # Locations of the ASV multifasta file and taxonomy directory
+      path.taxon <- paths.taxon[iter]
+      path.ASV <- paths.ASV[iter]
+      
+      # Execute taxonomic classification with DADA2
+      source(file.path(dirname(pipeline_path), 'dependencies/TaxonomicClassification.R'))
+    }
+  }
+  
+  
+  ##############################################
+  ## TAXONOMIC CLASSIFICATION WITH BOLDIGGER ##
+  #############################################
+  
+  if(boldigger == T){
+    cat('\n[BOLDigger]')
+    
+    
+    ########################################
+    ## ITERATION FOR EVERY SEQUENCING RUN ##
+    ########################################
+    
+    for(iter in 1:length(paths)){
+      
+      # Print iteration message
+      cat(paste0('\nIteration ', iter, ' out of ', length(paths), ': ', basename(paths[iter]), '\n'))
+      
+      # Locations of the ASV multifasta file and taxonomy directory
+      path.taxon <- paths.taxon[iter]
+      path.ASV <- paths.ASV[iter]
+      
+      # Execute the BOLDigger command line tool: find top 20 hits
       system2(command = 'boldigger-cline', args = c('ie_coi', 
                                                     'mathiasverbeke', 
                                                     'BBD936vjl', 
-                                                    ASV_paths[iter], 
+                                                    path.ASV, 
                                                     path.taxon))
       
+      # Execute the BOLDigger command line tool: find first hit (top-scoring match)
       system2(command = 'boldigger-cline', args = c('first_hit',
                                                     file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx')
                                                     )
