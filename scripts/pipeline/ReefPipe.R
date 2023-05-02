@@ -81,7 +81,7 @@ if(boldigger == T & (is.null(password) | is.null(user))){
 
 
 #########################
-## hardcoded variables ## 
+## HARDCODED VARIABLES ## 
 #########################
 
 dirnames = c('01.Prefiltered', 
@@ -100,12 +100,12 @@ if(!is.null(download)){
   
   cat('\n[Step 0] Fetching fastq files from ENA\n')
   
-  script_path <- commandArgs()[4]
-  script_path <- gsub(pattern = '\\\\', replacement = '/', script_path)
-  script_path <- gsub(pattern = '--file=', replacement = '', script_path)
+  pipeline_path <- commandArgs()[4]
+  pipeline_path <- gsub(pattern = '\\\\', replacement = '/', pipeline_path)
+  pipeline_path <- gsub(pattern = '--file=', replacement = '', pipeline_path)
   
   # Source the R-script
-  source(file.path(dirname(script_path), 'dependencies/ENAFetcher.R'))
+  source(file.path(dirname(pipeline_path), 'dependencies/ENAFetcher.R'))
   
   # Set run_mode to multi
   run_mode = 'multi'
@@ -120,11 +120,36 @@ if (run_mode == 'single'){
   paths = mainpath
 } else if(run_mode == 'multi'){
   paths = list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE)
+  
+  # Directories must only include _1.fastq or _2.fastq files 
+  for(path in paths){
+    files <- list.files(path = path, full.names = TRUE)
+    is_match <- grepl(pattern = "_1.fastq|_2.fastq", x = files) 
+    
+    if (any(!is_match)){
+      cat('\n')
+      stop(paste(path, 
+                 'includes files other than those containing _1.fastq or _2.fastq files.', 
+                 '\nPlease ensure that the base directory you are using only contains directories with exclusively fastq files if you are using the multi-option or downloading fastq files from ENA through this pipeline.',
+                 '\n\nExample:',
+                 '\nbase_directory/',
+                 '\n├── ENA_accessions.txt',
+                 '\n├── sample1/',
+                 '\n│   ├── sample1_1.fastq',
+                 '\n│   └── sample1_2.fastq',
+                 '\n├── sample2/',
+                 '\n│   ├── sample2_1.fastq',
+                 '\n│   └── sample2_2.fastq',
+                 '\n└── sample3/',
+                 '\n    ├── sample3_1.fastq',
+                 '\n    └── sample3_2.fastq\n\n'))
+    }
+  }
 }
 
 
 ############################
-## Downloading R packages ##
+## DOWNLOADING R PACKAGES ##
 ############################
 
 cat('\n[Step 1] Installing and loading all packages\n')
