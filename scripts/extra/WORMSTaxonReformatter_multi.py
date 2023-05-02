@@ -3,6 +3,7 @@ from Bio import SeqIO
 from tqdm import tqdm
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import sys
 
 # Create parser
 parser = argparse.ArgumentParser(description='Reformat multifasta taxonomy description lines')
@@ -27,6 +28,7 @@ elif args.delimiter == 'comma':
     delimiter = ','
 
 # Variables for end message
+display = True
 l = 0
 n = 0
 
@@ -113,8 +115,20 @@ with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
 
             # Wait for all the tasks to complete and print the results
             for future in tqdm(as_completed(futures), total = tot):
-                result = future.result()
-                out_file.write(result)
+                try:
+                    result = future.result()
+                    out_file.write(result)
+                
+                except Exception as e:
+                    
+                    print(f"An error occurred: {e}\nHalting all subsequent executions. This might take some time.")
+
+                    # Cancel all remaining futures
+                    for remaining_future in futures:
+                        if not remaining_future.done():
+                            remaining_future.cancel()
+                    
+                    sys.exit()
 
 # Print statistics after reformatting of the description lines has been performed
 print(f'\nSequences: {tot}\nLineages not found: {l} ({round((l/tot)*100,2)}%)\nSpecies not found: {n}  ({round((n/tot)*100,2)}%)')
