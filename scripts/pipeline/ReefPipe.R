@@ -4,7 +4,11 @@
 ## MESSAGE ##
 #############
 
-cat('  ____ ___  __  __ ____  _   _ _____ ___ _   _  ____    ___  ____   ____    _    _   _ ___ ____  __  __   ___ ____  _____ _   _ _____ ___ _______   __\n / ___/ _ \\|  \\/  |  _ \\| | | |_   _|_ _| \\ | |/ ___|  / _ \\|  _ \\ / ___|  / \\  | \\ | |_ _/ ___||  \\/  | |_ _|  _ \\| ____| \\ | |_   _|_ _|_   _\\ \\ / /\n| |  | | | | |\\/| | |_) | | | | | |  | ||  \\| | |  _  | | | | |_) | |  _  / _ \\ |  \\| || |\\___ \\| |\\/| |  | || | | |  _| |  \\| | | |  | |  | |  \\ V / \n| |__| |_| | |  | |  __/| |_| | | |  | || |\\  | |_| | | |_| |  _ <| |_| |/ ___ \\| |\\  || | ___) | |  | |  | || |_| | |___| |\\  | | |  | |  | |   | |  \n \\____\\___/|_|  |_|_|    \\___/  |_| |___|_| \\_|\\____|  \\___/|_| \\_\\\\____/_/   \\_|_| \\_|___|____/|_|  |_| |___|____/|_____|_| \\_| |_| |___| |_|   |_|  \n\n')
+cat(' ____  _____ _____ _____ ____ ___ ____  _____
+|  _ \\| ____| ____|  ___|  _ |_ _|  _ \\| ____|
+| |_) |  _| |  _| | |_  | |_) | || |_) |  _|   
+|  _ <| |___| |___|  _| |  __/| ||  __/| |___  
+|_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n\n')
 
 ####################################
 ## Parsing command line arguments ##
@@ -50,12 +54,12 @@ password <- args$password
 ########################################
 
 # Mainpath must be existing directory
-file_info <- file.info('~/Traineeship/ARMSProject/scripts/pipeline/ReefPipe.R')
+file_info <- file.info(mainpath)
 
 if(is.na(file_info$isdir)){
   stop(paste(mainpath, 'does not exist.'))
 } else if (file_info$isdir == F){
-  stop(paste(mainpath, 'does not exist.'))
+  stop(paste(mainpath, 'is not a directory.'))
 }
 
 # Primers must be provided if they must be trimmed
@@ -71,28 +75,6 @@ if(boldigger == T & (is.null(password) | is.null(user))){
 }
 
 
-############################
-## Downloading R packages ##
-############################
-
-pkg <- installed.packages()[,'Package']
-ToInstall <- c(
-  'argparse',
-  'xlsx',
-  'dada2',
-  'ggplot2',
-  'stats', 
-  'Biostrings',
-  'ShortRead',
-  'vegan'
-)
-
-for (item in ToInstall){
-  if (!item %in% pkg) {
-    install.packages(item)
-  }
-}
-
 #########################
 ## hardcoded variables ## 
 #########################
@@ -104,19 +86,15 @@ dirnames = c('01.Prefiltered',
              '05.Merged_Reads', 
              '06.Seq_Table')
 
-#mainpath <- '/home/guest/MyScripts/SWEDNA/DADA2Pipeline'
-#trim_primers <- FALSE
-#trunclen <- c(200, 140)
-#minlen <- 50
-#primers <- NULL
-#rm_singleton <- T
-
 
 #############################
 ## DOWNLOAD ENA ACCESSIONS ##
 #############################
 
 if(!is.null(download)){
+  
+  cat('[Step 0] Fetching fastq files from ENA\n')
+  
   script_path <- commandArgs()[4]
   script_path <- gsub(pattern = '\\\\', replacement = '/', script_path)
   script_path <- gsub(pattern = '--file=', replacement = '', script_path)
@@ -140,11 +118,34 @@ if (run_mode == 'single'){
 }
 
 
+############################
+## Downloading R packages ##
+############################
+
+cat('\n[Step 1] Installing and loading all packages\n')
+
+pkg <- installed.packages()[,'Package']
+ToInstall <- c(
+  'argparse',
+  'xlsx',
+  'dada2',
+  'ggplot2',
+  'stats', 
+  'Biostrings',
+  'ShortRead',
+  'vegan'
+)
+
+for (item in ToInstall){
+  if (!item %in% pkg) {
+    install.packages(item)
+  }
+}
+
+
 ###########################################
 ## LOADING PACKAGES AND SOURCING SCRIPTS ##
 ###########################################
-
-cat('\n[Step 1] Loading all packages\n')
 
 suppressPackageStartupMessages(library(dada2))
 suppressPackageStartupMessages(library(ggplot2))
@@ -152,6 +153,11 @@ suppressPackageStartupMessages(library(stats))
 suppressPackageStartupMessages(library(Biostrings))
 suppressPackageStartupMessages(library(ShortRead))
 suppressPackageStartupMessages(library(xlsx))
+
+
+########################################
+## ITERATION FOR EVERY SEQUENCING RUN ##
+########################################
 
 for(iter in 1:length(paths)){
   
@@ -392,8 +398,10 @@ for(iter in 1:length(paths)){
   # Learn the error rates
   set.seed(100)
   
+  
   errF <- learnErrors(FwdRead.filt, multithread=TRUE)
   errR <- learnErrors(RevRead.filt, multithread=TRUE)
+  
   
   # Construct and store the error plots
   pdf(file = file.path(path.error, paste0(sample.names[1], '.pdf')))
@@ -417,9 +425,11 @@ for(iter in 1:length(paths)){
   }
   
   # Infer the samples
+  
   dadaFwd <- dada(FwdRead.filt, err=errF, multithread=TRUE, pool = "pseudo")
   cat('\n\n')
   dadaRev <- dada(RevRead.filt, err=errR, multithread=TRUE, pool = "pseudo")
+  
   
   # Store the dada objects
   saveRDS(dadaFwd, file.path(path.infer, 'dadaFwd.rds'))
@@ -441,8 +451,8 @@ for(iter in 1:length(paths)){
   }
   
   # Merge the paired reads
-  mergers <- mergePairs(dadaFwd, FwdRead.filt, dadaRev, RevRead.filt, minOverlap = 10, maxMismatch = 1, verbose=TRUE)
-  
+  mergers <- mergePairs(dadaFwd, FwdRead.filt, dadaRev, RevRead.filt, minOverlap = 10, maxMismatch = 1, verbose=T)
+
   # Write mergers object to an rds file
   saveRDS(mergers, file.path(path.merge, 'mergers.rds'))
   
@@ -462,8 +472,9 @@ for(iter in 1:length(paths)){
   }
   
   # Construct the sequence table
-  seqtab <- makeSequenceTable(mergers)
   
+  seqtab <- makeSequenceTable(mergers)
+
   
   #####################
   ## REMOVE CHIMERAS ##
@@ -473,6 +484,7 @@ for(iter in 1:length(paths)){
   
   # Remove chimeras
   seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+  
   
   # Remove singletons
   if (rm_singleton == T){
@@ -505,34 +517,40 @@ for(iter in 1:length(paths)){
 ## TAXONOMIC CLASSIFICATION ##
 ##############################
 
-cat(paste('\n[12] Assigning taxonomy\n'))
-
-ASV_paths <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')
-
-for(iter in 1:length(paths)){
+if(boldigger == T){
+  cat(paste('\n[12] Assigning taxonomy\n'))
   
-  path.taxon <- file.path(paths[iter], '07.Taxonomy')
-  
-  if(!dir.exists(path.taxon)){
-    cat(paste('Creating output directory:', path.taxon, '\n'))
-    dir.create(path.taxon)
-  }
-  
-  # Taxonomic classification with BOLDigger
-  if(boldigger == T){
-    system2(command = 'boldigger-cline', args = c('ie_coi', 
-                                                  'mathiasverbeke', 
-                                                  'BBD936vjl', 
-                                                  ASV_paths[iter], 
-                                                  path.taxon))
+  for(iter in 1:length(paths)){
     
-    system2(command = 'boldigger-cline', args = c('first_hit',
-                                                  file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx')
-                                                  )
-    )
+    # Getting path to ASV multifasta file
+    ASV_paths <- file.path(paths[iter], '06.Seq_Table/COI_ASVS.fasta')
     
-    bold_taxonomy <- read.xlsx(file = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit')
-    write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLD_first_hit.xlsx'))
-    file.rename(file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), file.path(path.taxon, 'BOLD_all_hits.xlsx'))
+    # Construct path to directory where taxonomy is be stored
+    path.taxon <- file.path(paths[iter], '07.Taxonomy')
+    
+    # Create directory where taxonomy is stored
+    if(!dir.exists(path.taxon)){
+      cat(paste('Creating output directory:', path.taxon, '\n'))
+      dir.create(path.taxon)
+    }
+    
+    # Taxonomic classification with BOLDigger
+    if(boldigger == T){
+      cat('[BOLDigger] ')
+      system2(command = 'boldigger-cline', args = c('ie_coi', 
+                                                    'mathiasverbeke', 
+                                                    'BBD936vjl', 
+                                                    ASV_paths[iter], 
+                                                    path.taxon))
+      
+      system2(command = 'boldigger-cline', args = c('first_hit',
+                                                    file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx')
+                                                    )
+      )
+      
+      bold_taxonomy <- read.xlsx(file = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit')
+      write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLD_first_hit.xlsx'))
+      file.rename(file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), file.path(path.taxon, 'BOLD_all_hits.xlsx'))
+    }
   }
 }
