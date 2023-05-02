@@ -20,19 +20,24 @@ suppressWarnings({
 
 parser <- ArgumentParser(description = 'Arguments for DADA2 pipeline')
 
-parser$add_argument('-b', '--base_dir', metavar = 'dir', type = 'character', required = TRUE, help = 'Base directory path')
+# Mandatory command line arguments
+parser$add_argument('-b', '--base_dir', metavar = 'BASEDIR', type = 'character', required = TRUE, help = 'Base directory path')
 parser$add_argument('-d', '--download', metavar = 'FILENAME', required = FALSE, help = 'Download data from ENA for the given accessions listed in FILENAME')
 parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify whether the script should be run once or for multiple runs. Use \'single\' to run the script once, and \'multi\' to run it multiple times.')
-parser$add_argument('-u', '--user', type = 'character', required = FALSE, help = 'BOLDSYSTEMS user ID')
-parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'BOLDSYSTEMS password')
+
+# Command line arguments for preprocessing
 parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Specify if you want to trim primers or not. Default is FALSE.')
 parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Forward and reverse primer sequences for trimming.')
 parser$add_argument('-s', '--rm_singleton', action = 'store_false', help = 'Turn of singleton removal in the sequence table.')
-parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='Set the maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
 parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='Minimum length threshold for the trimmed reads. Default is 50.')
+parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='Set the maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
+
+# Command line arguments for taxonomic classification
 parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using boldigger.')
+parser$add_argument('-u', '--user', type = 'character', required = FALSE, help = 'BOLDSYSTEMS user ID')
+parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'BOLDSYSTEMS password')
 
-
+# Parse the arguments
 args <- parser$parse_args()
 
 # Access the argument values
@@ -40,9 +45,9 @@ mainpath <- args$base_dir
 download <- args$download
 run_mode <- args$run_mode
 trim_primers <- args$trim_primers
-trunclen <- args$trunclen
 primers <- args$primers
 minlen <- args$minlen
+trunclen <- args$trunclen
 rm_singleton <- args$rm_singleton
 boldigger <- args$BOLDigger
 user <- args$user
@@ -133,7 +138,9 @@ ToInstall <- c(
   'stats', 
   'Biostrings',
   'ShortRead',
-  'vegan'
+  'vegan',
+  'Biostrings', 
+  'xlsx'
 )
 
 for (item in ToInstall){
@@ -535,7 +542,7 @@ if(boldigger == T){
     
     # Taxonomic classification with BOLDigger
     if(boldigger == T){
-      cat('[BOLDigger] ')
+      cat('\n[BOLDigger] ')
       system2(command = 'boldigger-cline', args = c('ie_coi', 
                                                     'mathiasverbeke', 
                                                     'BBD936vjl', 
