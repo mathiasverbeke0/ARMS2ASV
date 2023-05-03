@@ -90,18 +90,6 @@ if(boldigger == T & (is.null(password) | is.null(user))){
 }
 
 
-#########################
-## HARDCODED VARIABLES ## 
-#########################
-
-dirnames = c('01.Prefiltered', 
-             '02.Filtered_Trimmed', 
-             '03.Error_Rates', 
-             '04.Sample_Inference', 
-             '05.Merged_Reads', 
-             '06.Seq_Table')
-
-
 ###############################
 ## LOCATION OF MAIN PIPELINE ##
 ###############################
@@ -116,7 +104,12 @@ pipeline_path <- gsub(pattern = '--file=', replacement = '', pipeline_path)
 #############################
 
 if(!is.null(download)){
-  cat('\n[Step 0] Fetching fastq files from ENA\n')
+  cat('\n  ___ _ __   __ _ 
+ / _ \\ \'_ \\ / _` |
+|  __/ | | | (_| |
+ \\___|_| |_|\\__,_|\n')
+  
+  cat('\nFetching fastq files from ENA\n\n')
   
   # Source the R-script
   source(file.path(dirname(pipeline_path), 'dependencies/ENAFetcher.R'))
@@ -132,10 +125,23 @@ if(!is.null(download)){
 
 if (run_mode == 'single'){
   paths = mainpath
+  
 } else if(run_mode == 'multi'){
   paths = list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE)
-  
-  # Directories must only include _1.fastq or _2.fastq files 
+}
+
+##############################
+## DIRECTORY CONTENTS CHECK ##
+##############################
+
+# Mainpath must have contents
+if(length(list.files(mainpath)) == 0){
+  cat('\n')
+  stop('There are no contents in the base directory.')
+}
+
+# If run_mode is multi, the child directories should only contain _1.fastq and _2.fastq files
+if(run_mode == 'multi'){
   for(path in paths){
     files <- list.files(path = path, full.names = TRUE)
     is_match <- grepl(pattern = "_1.fastq|_2.fastq", x = files) 
@@ -143,7 +149,7 @@ if (run_mode == 'single'){
     if (any(!is_match)){
       cat('\n')
       stop(paste(path, 
-                 'includes files other than those containing _1.fastq or _2.fastq files.', 
+                 'includes files other than being _1.fastq or _2.fastq files.', 
                  '\nPlease ensure that the base directory you are using only contains directories with exclusively fastq files if you are using the multi-option or downloading fastq files from ENA through this pipeline.',
                  '\n\nExample:',
                  '\nbase_directory/',
@@ -166,7 +172,13 @@ if (run_mode == 'single'){
 ## DOWNLOADING R PACKAGES ##
 ############################
 
-cat('\n[Step 1] Installing and loading all packages\n')
+cat('\n _ _ _     
+| (_) |__  
+| | | \'_ \\ 
+| | | |_) |
+|_|_|_.__/ \n')
+
+cat('\nInstalling and loading all packages\n')
 
 pkg <- installed.packages()[,'Package']
 
@@ -205,24 +217,33 @@ suppressPackageStartupMessages(library(vegan))
 ## ASV GENERATION FOR EVERY SEQUENCING RUN ##
 #############################################
 
-cat('  __ _ _____   __
+cat('\n  __ _ _____   __
  / _` / __\\ \\ / /
 | (_| \\__ \\\\ V / 
  \\__,_|___/ \\_/  \n')
 
 for(iter in 1:length(paths)){
   
+  ##################################
+  ## ITERATION AND STEP VARIABLES ##
+  ##################################
+  
   # Iteration message
   cat(paste0('\nIteration ', iter, ' out of ', length(paths), ': ', basename(paths[iter])))
   
   # Iteration label
-  label <- paste0('\n[', iter, '/', length(paths), ' - Step')
+  label <- paste0('\n[', iter, '/', length(paths), ' - Step ')
+  
+  # Step counter
+  step <- 0
   
   ##########################
   ## FETCHING FASTQ FILES ##
   ##########################
   
-  cat(paste(label, '2] Fetching fastq file paths\n'))
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] Fetching fastq file paths\n'))
   
   # Forward and reverse read paths
   FwdRead <- sort(list.files(paths[iter], pattern="_1.fastq", full.names = TRUE))
@@ -258,7 +279,9 @@ for(iter in 1:length(paths)){
   
   if (trim_primers == T){
     
-    cat(paste(label, '3] Removing primers with cutadapt and prefiltering the reads\n'))
+    # Message
+    step <- step + 1
+    cat(paste0(label, step, '] Removing primers with cutadapt and prefiltering the reads\n'))
     
     # Make a new directory to store prefiltered sequences
     path.cut <- file.path(paths[iter], '01.Prefiltered')
@@ -294,7 +317,9 @@ for(iter in 1:length(paths)){
   ##################################
   if (trim_primers == F){
     
-    cat(paste(label, '3] Prefiltering the reads\n'))
+    # Message
+    step <- step + 1
+    cat(paste0(label, step, '] Prefiltering the reads\n'))
     
     # Make directory path to store prefiltered sequences
     path.cut <- file.path(paths[iter], '01.Prefiltered')
@@ -319,8 +344,11 @@ for(iter in 1:length(paths)){
   ## INSPECT READ QUALITY PROFILES ##
   ###################################
   
-  cat(paste(label, '4] Plotting quality of prefiltered reads\n'))
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] Plotting quality of prefiltered reads\n'))
   
+  # Make PDF with read quality profiles
   suppressWarnings({
     
     pdf(file = file.path(path.cut, 'QualityProfilesPreFiltered.pdf'))
@@ -362,7 +390,9 @@ for(iter in 1:length(paths)){
   ## FILTER AND TRIM ##
   #####################
   
-  cat(paste(label, '5] Trimming the prefiltered reads\n'))
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] Trimming the prefiltered reads\n'))
   
   # Make directory path to store prefiltered sequences
   path.filt <- file.path(paths[iter], '02.Filtered_Trimmed')
@@ -395,8 +425,11 @@ for(iter in 1:length(paths)){
   ## INSPECT READ QUALITY PROFILES OF TRIMMED READS ##
   ####################################################
   
-  cat(paste(label, '6] Plotting quality of trimmed reads\n'))
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] Plotting quality of trimmed reads\n'))
   
+  # Make PDF with read quality profiles
   suppressWarnings({
     pdf(file = file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf'))
     
@@ -436,7 +469,9 @@ for(iter in 1:length(paths)){
   ## LEARN THE ERROR RATES ##
   ###########################
   
-  cat(paste(label, '7] Learning error rates\n'))
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] Learning error rates\n'))
   
   # Make directory path to store the error plots
   path.error <- file.path(paths[iter], '03.Error_Rates')
@@ -465,7 +500,9 @@ for(iter in 1:length(paths)){
   ## SAMPLE INFERENCE ##
   ######################
   
-  cat(paste(label, '8] Inferring sample\n'))
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] Inferring sample\n'))
   
   # Make directory path to store the dada objects
   path.infer <- file.path(paths[iter], '04.Sample_Inference')
@@ -491,7 +528,9 @@ for(iter in 1:length(paths)){
   ## MERGE PAIRED READS ##
   ########################
   
-  cat(paste('\n', label, '9] Merging paired reads\n'))
+  # Message
+  step <- step + 1
+  cat(paste0('\n', label, step, '] Merging paired reads\n'))
   
   # Make directory path to store the merger object
   path.merge <- file.path(paths[iter], '05.Merged_Reads')
@@ -512,7 +551,9 @@ for(iter in 1:length(paths)){
   ## CONSTRUCT SEQUENCE TABLE ##
   ##############################
   
-  cat(paste(label, '10] Constructing sequence tables\n'))
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] Constructing sequence tables\n'))
   
   # Make directory path to store COI ASV sequences
   path.seq <- file.path(paths[iter], '06.Seq_Table')
@@ -531,14 +572,19 @@ for(iter in 1:length(paths)){
   ## REMOVE CHIMERAS ##
   #####################
   
-  cat(paste(label, '11] Removing chimeras\n'))
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] Removing chimeras\n'))
   
   # Remove chimeras
   seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
   
   # Remove singletons
   if (rm_singleton == T & dim(seqtab.nochim)[1] > 1){
-    cat(paste(label, '12] Removing singletons\n'))
+    
+    # Message
+    step <- step + 1
+    cat(paste0(label, step, '] Removing singletons\n'))
     
     mode(seqtab.nochim) = 'numeric'
     seqtab.nochim <- seqtab.nochim[,colSums(seqtab.nochim) > 1]
@@ -586,7 +632,7 @@ if(reference == T | boldigger == T){
   # Create directory where taxonomy is stored
   for(path.taxon in paths.taxon){
     if(!dir.exists(path.taxon)){
-      cat(paste('Creating output directory:', path.taxon, '\n'))
+      cat(paste('Creating output directories:', path.taxon, '\n'))
       dir.create(path.taxon)
     }
   }
