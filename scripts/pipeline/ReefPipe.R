@@ -10,6 +10,7 @@ cat(' ____  _____ _____ _____ ____ ___ ____  _____
 |  _ <| |___| |___|  _| |  __/| ||  __/| |___  
 |_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n')
 
+
 ####################################
 ## Parsing command line arguments ##
 ####################################
@@ -190,7 +191,8 @@ ToInstall <- c(
   'Biostrings',
   'ShortRead',
   'vegan',
-  'Biostrings'
+  'Biostrings',
+  'readxl'
 )
 
 for (item in ToInstall){
@@ -484,10 +486,8 @@ for(iter in 1:length(paths)){
   # Learn the error rates
   set.seed(100)
   
-  
   errF <- learnErrors(FwdRead.filt, multithread=TRUE)
   errR <- learnErrors(RevRead.filt, multithread=TRUE)
-  
   
   # Construct and store the error plots
   pdf(file = file.path(path.error, paste0(sample.names[1], '.pdf')))
@@ -513,11 +513,10 @@ for(iter in 1:length(paths)){
   }
   
   # Infer the samples
-  
   dadaFwd <- dada(FwdRead.filt, err=errF, multithread=TRUE, pool = "pseudo")
-  cat('\n\n')
+  cat('\n')
   dadaRev <- dada(RevRead.filt, err=errR, multithread=TRUE, pool = "pseudo")
-  
+  cat('\n')
   
   # Store the dada objects
   saveRDS(dadaFwd, file.path(path.infer, 'dadaFwd.rds'))
@@ -530,7 +529,7 @@ for(iter in 1:length(paths)){
   
   # Message
   step <- step + 1
-  cat(paste0('\n', label, step, '] Merging paired reads\n'))
+  cat(paste0(label, step, '] Merging paired reads\n'))
   
   # Make directory path to store the merger object
   path.merge <- file.path(paths[iter], '05.Merged_Reads')
@@ -566,7 +565,31 @@ for(iter in 1:length(paths)){
   # Construct the sequence table
   
   seqtab <- makeSequenceTable(mergers)
-
+  
+  ##########################
+  ## CHECK SEQUENCE TABLE ##
+  ##########################
+  
+  # If there are no sequences in the sequence table, continue
+  if(dim(seqtab)[2] == 0){
+    
+    cat(paste('\nASVS could not be generated for', basename(paths[iter]), 
+              '\nExcluding', paths[iter], 'from paths to take into consideration.\n'))
+    
+    # Write failed ASV generation to output file
+    if(!file.exists(file.path(mainpath, 'log.txt'))){
+      file.create(file.path(mainpath, 'log.txt'))
+    }
+    
+    # Find index of path to remove
+    index_to_remove <- grep(pattern = paths[iter], paths)
+    
+    # Remove path from paths variable
+    paths <- paths[-index_to_remove]
+    
+    # Continue
+    next
+  }
   
   #####################
   ## REMOVE CHIMERAS ##
@@ -606,6 +629,8 @@ for(iter in 1:length(paths)){
   # write ASV sequences and headers to a text and rds file
   write(asv_fasta, file.path(path.seq, 'COI_ASVS.fasta'))
   saveRDS(seqtab.nochim, file.path(path.seq, 'seqtab.rds'))
+  
+  cat('\n\n')
 }
 
 
@@ -614,7 +639,7 @@ for(iter in 1:length(paths)){
 ##############################
 
 # Check if taxonomic classification needs to be performed
-if(reference == T | boldigger == T){
+if((reference == T | boldigger == T) & length(paths) > 0){
   
   # Taxonomy message
   cat(' _             
@@ -673,9 +698,9 @@ if(reference == T | boldigger == T){
     cat('\n[BOLDigger]')
     
     
-    ########################################
-    ## ITERATION FOR EVERY SEQUENCING RUN ##
-    ########################################
+    #########################################
+    ## ITERATION OVER EVERY SEQUENCING RUN ##
+    #########################################
     
     for(iter in 1:length(paths)){
       
@@ -693,15 +718,36 @@ if(reference == T | boldigger == T){
                                                     path.ASV, 
                                                     path.taxon))
       
-      # Execute the BOLDigger command line tool: find first hit (top-scoring match)
-      system2(command = 'boldigger-cline', args = c('first_hit',
-                                                    file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx')
-                                                    )
-      )
+      # Get the file names in the Taxonomy directory
+      files <- list.files(path = path.taxon, full.names = T)
       
+      non_dirs <- c()
+      
+      for(file in files){
+        if(dir.exists(paths = file)){next} 
+        else{non_dirs <- c(non_dirs, file)}
+      }
+      
+      # Search for the BOLDigger output Excel and .h5.lz file using regular expressions
+      excel_file <- files[grepl(".xlsx$", files)]
+      
+      # Execute the BOLDigger command line tool: find first hit (top-scoring match)
+      system2(command = 'boldigger-cline', args = c('first_hit', excel_file))
+      
+      # Read in the second sheet of the BOLDigger output excel file
       bold_taxonomy <- read.xlsx(file = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit')
-      write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLD_first_hit.xlsx'))
-      file.rename(file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), file.path(path.taxon, 'BOLD_all_hits.xlsx'))
+      
+      # Create directory to store only the first hits
+      if(!dir.exists(file.path(path.taxon, 'BOLDSYSTEMS'))){
+        cat(paste('Saving first hit outputs to:', file.path(path.taxon, 'BOLDSYSTEMS'), '\n'))
+        dir.create(file.path(path.taxon, 'BOLDSYSTEMS'))
+      }
+      
+      # Write the contents of the second sheet to a separate excel file
+      write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLDSYSTEMS', 'BOLD_first_hit.xlsx'))
+      
+      # Remove the original BOLDigger output files
+      for(non_dir in non_dirs){unlink(x = non_dir)}
     }
   }
 }
