@@ -1,8 +1,28 @@
+####################
+## Import modules ##
+####################
 from Bio import Entrez, SeqIO
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import argparse, sys
 
-############################################################################################
+
+##################################
+## Parse command line arguments ##
+##################################
+
+# Create parser
+parser = argparse.ArgumentParser(description='Fetch NCBI reference sequences.')
+
+# Add arguments
+parser.add_argument ('-g', '--GOI', required = True, help = 'Specify gene of interest.')
+parser.add_argument('-o', '--OUT', required = True, help = 'Specify multifasta output file')
+parser.add_argument('-t', '--TAX', nargs='+', help='Specify one or more organisms using their genus and species, or taxonomic level (e.g. Homo). Example: Escherichia_coli Saccharomyces_cerevisiae Homo Mollusca.')
+parser.add_argument('-e', '--email', required = True, help = 'Email you use to access NCBI.')
+
+# Parse the arguments
+args = parser.parse_args()
+
 def getInfo(id):
     # Search for Refseq gene sequence
     handle = Entrez.efetch(db="nucleotide", id=id, rettype="fasta", retmode="text")
@@ -24,17 +44,15 @@ def getInfo(id):
     # Write taxonomy and sequence to multifasta file (can be used by DADA2 assignTaxonomy)
     return tax_str, seq
 
+organisms = [' '.join(organism.split('_')).capitalize() for organism in args.TAX]
 
-# Set search parameters
-organisms = ['Ascomycota', 'Ochrophyta', 'Rhodophyta', 'Chlorophyta', 'Charophyta', 'Tracheophyta', 'Porifera', 'Cnidaria', 'Ctenophora', 'Platyhelminthes', 'Nemertea', 'Sipuncula', 'Mollusca', 'Annelida', 'Arthropoda', 'Phoronida', 'Bryozoa', 'Brachiopoda', 'Echinodermata', 'Chordata'] # replace with your organism of interest
-gene_name = 'COI' # replace with your gene of interest
+gene_name = args.GOI.upper()
 
 # Tell NCBI who you are
-Entrez.email = input('Provide NCBI email: ')
-print('\n')
+Entrez.email = args.email
 
 # Loop over the organisms
-with open('testfile.fasta', 'w') as f:
+with open(args.OUT, 'w') as f:
     for organism in organisms:
         print(f'Fetching {gene_name} sequences for {organism}')
         # Search for RefSeq gene ids
@@ -46,7 +64,7 @@ with open('testfile.fasta', 'w') as f:
         id_tot = len(id_list)
 
         if id_tot == 0:
-            print('None found\n')
+            print('None found')
             continue
         
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -55,7 +73,16 @@ with open('testfile.fasta', 'w') as f:
 
             # Wait for all the tasks to complete and print the results
             for future in tqdm(as_completed(futures), total = id_tot):
-                tax, seq = future.result()
-                f.write(f'>{tax}\n{seq}\n')
-        
-        print('\n')
+                try:
+                    tax, seq = future.result()
+                    f.write(f'>{tax}\n{seq}\n')
+                
+                except Exception as e:
+                        print('An error occurred: {e}\Halting all subsequent executions. This might take some time.')
+                        
+                        # Cancel all remaining futures
+                        for remaining_future in futures:
+                            if not remaining_future.done():
+                                remaining_future.cancel()
+
+                        sys.exit()
