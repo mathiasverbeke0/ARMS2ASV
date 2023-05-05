@@ -4,6 +4,7 @@
 library(purrr)
 library(readxl)
 library(dplyr)
+library(xlsx)
 
 
 ##########################
@@ -21,6 +22,9 @@ parent_dir <- '/home/guest/Traineeship/ARMSProject/data/temp/ARMS_SWC_Gbg2_20200
 
 # Get a list of all the taxonomic files (excel) within the parent's subdirectories
 tax_files <- list.files(parent_dir, pattern = "\\.xlsx$", recursive = TRUE, full.names = TRUE)
+
+# Ignore previously generated excel files upon rerunning script in the same parent folder
+tax_files <- tax_files[!basename(tax_files) %in% c('Ambiguous.xlsx', 'Consensus.xlsx')]
 
 
 ###########################################
@@ -53,9 +57,9 @@ if (dir.exists(bold_dir)) {
 }
 
 
-##########################################
-## Reading in the other taxonomic files ## 
-##########################################
+######################################################
+## Reading and processing the other taxonomic files ## 
+######################################################
 if(length(tax_files) > 0){
   
   # Iterate over the taxonomic files and store the resulting data frames in a list
@@ -148,7 +152,7 @@ if(length(tax_files) > 0){
         
         # Check if the current line is not a substring of any item already in tax_dump, 
         # or if it is a substring that appears more than once; if not, add it to tax_dump
-        if(!sum(grepl(pattern = tax_lines[i], tax_dump)) == 1){
+        if(!sum(grepl(pattern = tax_lines[i], tax_dump)) >= 1){
           tax_dump <- c(tax_dump, tax_lines[i])
           tax_index <- c(tax_index, i)
         }
@@ -165,20 +169,45 @@ if(length(tax_files) > 0){
   # Merge the data frames
   merged <- reduce(tax_tables, merge_tax)
   
-  # Look for ambiguous classifications
-  ambiguous <- data.frame()
-  ambiguous_ID <- c()
   
+  #########################################
+  ## Look for ambiguous classifications ###
+  #########################################
+  
+  # Ignore previously generated log file upon rerunning script in the same folder
+  if (file.exists(file.path(parent_dir, "TaxLog.txt"))){
+    file.remove(file.path(parent_dir, "TaxLog.txt"))
+    cat(paste('Ambiguous taxonomies in reference database tables:\n',
+              '--------------------------------------------------\n'), 
+        file = file.path(parent_dir, 'TaxLog.txt'))
+  }
+  
+  # Make data frame to store ambiguous taxonomies
+  ambiguous <- data.frame()
+  
+  # Loop over every unique ID
   for(ID in unique(merged$ID)){
+    
+    # Check if there is more than 1 row with the same ID
     if(nrow(merged[merged$ID == ID,])>1){
+      
+      # Add the ambiguous columns to the ambiguous data frame
       ambiguous <- rbind(ambiguous, merged[merged$ID == ID,])
-      ambiguous_ID <- c(ambiguous_ID, ID)
       
       # Remove the ambiguous classifications from the merged data frame
       merged <- merged[merged$ID != ID,]
+      
+      # Write the IDs for ambiguous taxonomies to a log file
+      cat(ID, 
+          file = file.path(parent_dir, 'TaxLog.txt'), 
+          append = T)
     }
   }
+  
+  # Storing ambiguous taxonomy table in excel file
+  write.xlsx(ambiguous, file = file.path(parent_dir, 'Ambiguous.xlsx'))
 }
+
 
 ######################################################################
 ## Supplement BOLDSYSTEMS taxonomy table with other taxonomy tables ## 
@@ -188,6 +217,8 @@ if(dir.exists(bold_dir) & length(tax_files) > 0){
   
   # Iterate over rows of BOLDSYSTEMS taxonomy table
   for(row in 1:nrow(bold_taxa)){
+    
+    
     
     # ASV ID
     ASV_ID <- sub("^>", "", bold_taxa$ID[row])
@@ -217,51 +248,121 @@ if(dir.exists(bold_dir) & length(tax_files) > 0){
     }
     
     else if(all(is.na(bold_taxa[row, tax_levels]))){
-      print(paste(ASV_ID, 'has an ambiguous taxonomic classification in the reference databases.'))
+      
+      cat(paste(ASV_ID, '\n'), file = file.path(parent_dir, 'TaxLog.txt'), append = T)
     }
     
-    ################################################################################
-    ## If tax levels of BOLDSYSTEMS ASV is less specific than reference databases ##
-    ################################################################################
+    ############################################################################################
+    ## If tax levels of BOLDSYSTEMS ASV is less specific than merged reference database table ##
+    ############################################################################################
     
     # If an ASV in the bold taxonomy has taxonomic levels and is unambiguous in the other taxonomy data frame...
     else if(!all(is.na(bold_taxa[row, tax_levels])) & ASV_ID %in% unique(merged$ID)){
       
       # Check if the reference databases have more taxonomic levels
       if(sum(!is.na(bold_taxa[row, tax_levels])) < sum(!is.na(merged[merged$ID == ASV_ID, tax_levels]))){
-        bold_taxonomy <- bold_taxa[row, tax_levels]
-        reference_taxonomy <- merged[merged$ID == ASV_ID, tax_levels]
         
-        bold_taxonomy <- bold_taxonomy[!is.na(bold_taxonomy)]
-        reference_taxonomy <- merged_taxonomy[!is.na(merged_taxonomy)]
+        # Extract the BOLDSYSTEMS and reference database taxonomies
+        bold_taxonomy_na <- bold_taxa[row, tax_levels]
+        reference_taxonomy_na <- merged[merged$ID == ASV_ID, tax_levels]
         
+        # Remove all missing values
+        bold_taxonomy <- bold_taxonomy_na[!is.na(bold_taxonomy_na)]
+        reference_taxonomy <- reference_taxonomy_na[!is.na(reference_taxonomy_na)]
+        
+        # Some species levels are written as genus and species in the reference database tables
+        # This needs to updated to only the species
         if(length(reference_taxonomy) == 6){
           reference_taxonomy[6] <- sub(pattern = reference_taxonomy[5], replacement = '', x = reference_taxonomy[6])
           reference_taxonomy[6] <- sub(pattern = ' ', replacement = '', x = reference_taxonomy[6])
         }
         
-        bold_length <- length(bold_taxonomy)
-        reference_length <- length(reference_taxonomy)
-        extra_levels <- tax_levels[(bold_length + 1): reference_length]
-        
+        # Construct a single string for the bold taxonomy and merged reference taxonomy
         bold_string <- paste(bold_taxonomy, collapse = ' ')
         reference_string <- paste(reference_taxonomy, collapse = ' ')
-        extra_string <- paste(extra_levels, collapse = ';')
         
+        # Check if BOLDSYSTEMS taxonomy matches with merged reference database table's extended taxonomy
         if(grepl(pattern = bold_string, x = reference_string)){
           
+          # Merge BOLDSYSTEMS and reference table sources
           source <- paste(c(bold_taxa[row, 'source'], merged[merged$ID == ASV_ID, 'source']), collapse = ';')
           
+          # Update the sources in the BOLDSYSTEMS taxonomic table
           bold_taxa[row, c('source')] <- source
           
-          bold_taxa[row, c(tax_levels)] <- as.list(reference_taxonomy)
+          # Update the taxonomic levels in the BOLDSYSTEMS taxonomic table
+          bold_taxa[row, c(tax_levels)] <- as.list(reference_taxonomy_na)
           
+          # Determine which taxonomic levels where supplemented to the BOLDSYSTEMS taxonomy
+          bold_length <- length(bold_taxonomy)
+          reference_length <- length(reference_taxonomy)
+          extra_levels <- tax_levels[(bold_length + 1): reference_length]
+          extra_string <- paste(extra_levels, collapse = ';')
+          
+          # Update the supplemented taxonomic levels in the BOLDSYSTEMS table
           bold_taxa[row, 'FromReference'] <- extra_string
         }
       }
     }
+    
+    #######################################################################################################
+    ## If tax levels of BOLDSYSTEMS ASV is less specific than ambiguous merged reference databases table ##
+    #######################################################################################################
+    
+    else if(!all(is.na(bold_taxa[row, tax_levels])) & ASV_ID %in% unique(ambiguous$ID)){
+      
+      # Extract the BOLDSYSTEMS and ambiguous reference database taxonomies
+      bold_taxonomy_na <- bold_taxa[row, tax_levels]
+      reference_taxonomy_na <- ambiguous[ambiguous$ID == ASV_ID, tax_levels]
+      
+      # Remove all missing values and create single taxonomic line
+      bold_taxonomy <- bold_taxonomy_na[!is.na(bold_taxonomy_na)]
+      bold_string <- paste(bold_taxonomy, collapse = ' ')
+      
+      # Create a single taxonomic line for each row for ambiguous table(without NA values)
+      reference_string <- apply(reference_taxonomy_na, 1, function(row){
+        non_na_values <- row[!is.na(row)]
+        
+        # Some species levels are written as genus and species in the reference database tables
+        # This needs to updated to only the species
+        if(length(row) == 6){
+          row[6] <- sub(pattern = row[5], replacement = '', x = row[6])
+          row[6] <- sub(pattern = ' ', replacement = '', x = row[6])
+        }
+        
+        # Construct a single string for the bold taxonomy and merged reference taxonomy
+        row_string <- paste(row, collapse = ' ')
+      
+        return(row_string)
+      })
+      
+      if(sum(grepl(pattern = bold_string, x = reference_string)) == 1){
+        index <- grep(pattern = bold_string, x = reference_string)
+        
+        # Merge BOLDSYSTEMS and reference table sources
+        source <- paste(c(bold_taxa[row, 'source'], ambiguous[ambiguous$ID == ASV_ID, 'source'][index,]), collapse = ';')
+        
+        # Update the sources in the BOLDSYSTEMS taxonomic table
+        bold_taxa[row, c('source')] <- source
+        
+        # Update the taxonomic levels in the BOLDSYSTEMS taxonomic table
+        bold_taxa[row, c(tax_levels)] <- as.list(reference_taxonomy_na[index,])
+        
+        # Determine which taxonomic levels where supplemented to the BOLDSYSTEMS taxonomy
+        bold_length <- length(bold_taxonomy)
+        reference_length <- sum(!is.na(reference_taxonomy_na[index,]))
+        extra_levels <- tax_levels[(bold_length + 1): reference_length]
+        extra_string <- paste(extra_levels, collapse = ';')
+        
+        # Update the supplemented taxonomic levels in the BOLDSYSTEMS table
+        bold_taxa[row, 'FromReference'] <- extra_string
+        
+        # Add an ambiguity warning
+        bold_taxa[row, 'Ambiguity'] <- 'Yes'
+      }
+    }
   }
+  
+  # Storing ambiguous taxonomy table in excel file
+  write.xlsx(bold_taxa, file = file.path(parent_dir, 'Consensus.xlsx'))
 }
-
-bold_taxa[row,]
-print(bold_taxa[bold_taxa$source != 'BOLDSYSTEMS',], n=100)
