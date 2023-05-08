@@ -8,7 +8,7 @@ cat(' ____  _____ _____ _____ ____ ___ ____  _____
 |  _ \\| ____| ____|  ___|  _ |_ _|  _ \\| ____|
 | |_) |  _| |  _| | |_  | |_) | || |_) |  _|   
 |  _ <| |___| |___|  _| |  __/| ||  __/| |___  
-|_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n')
+|_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n\n')
 
 
 ####################################
@@ -25,26 +25,26 @@ suppressWarnings({
   suppressPackageStartupMessages(library(argparse))
 })
 
-parser <- ArgumentParser(description = 'Arguments for DADA2 pipeline')
+parser <- ArgumentParser(description = 'Reefpipe command line arguments')
 
 # Mandatory command line arguments
-parser$add_argument('-b', '--base_dir', metavar = 'BASEDIR', type = 'character', required = TRUE, help = 'Base directory path')
-parser$add_argument('-d', '--download', metavar = 'FILENAME', required = FALSE, help = 'Download data from ENA for the given accessions listed in FILENAME')
-parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify whether the script should be run once or for multiple runs. Use \'single\' to run the script once, and \'multi\' to run it multiple times.')
+parser$add_argument('-b', '--base_dir', metavar = 'BASEDIR', type = 'character', required = TRUE, help = 'The base directory path for the analysis.')
+parser$add_argument('-d', '--download', metavar = 'FILENAME', required = FALSE, help = 'Download data from ENA for the given accessions listed in FILENAME.')
+parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify whether to run the script for a single or multiple sequencing runs. Select \'single\' for analyzing a single run and \'multi\' for analyzing multiple runs.')
 
 # Command line arguments for preprocessing
-parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Specify if you want to trim primers or not. Default is FALSE.')
+parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Trim primers with Cutadapt. By default, primers are not trimmed.')
 parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Forward and reverse primer sequences for trimming.')
-parser$add_argument('-s', '--rm_singleton', action = 'store_false', help = 'Turn of singleton removal in the sequence table.')
-parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='Minimum length threshold for the trimmed reads. Default is 50.')
-parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='Set the maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
+parser$add_argument('-s', '--singleton', action = 'store_false', help = 'Keep singletons in the sequence table. By default, singletons are removed (except when only one sample is analyzed).')
+parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='The minimum length threshold for the trimmed reads. Default is 50.')
+parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='The maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
 
 # Command line arguments for taxonomic classification
-parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using boldigger.')
-parser$add_argument('-U', '--user', type = 'character', required = FALSE, help = 'BOLDSYSTEMS user ID')
-parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'BOLDSYSTEMS password')
-parser$add_argument('-R', '--reference', action = 'store_true', help = 'Perform taxonomic classification using own reference databases.')
-parser$add_argument('-M', '--minBoot', type = 'numeric', default = 80, help = 'The minimal bootstrap value for taxonomic classification with DADA2.')
+parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using BOLDigger.')
+parser$add_argument('-U', '--user', type = 'character', required = FALSE, help = 'The BOLDSYSTEMS user ID.')
+parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'The BOLDSYSTEMS password.')
+parser$add_argument('-R', '--reference', action = 'store_true', help = 'Perform taxonomic classification with DADA2 using own reference databases.')
+parser$add_argument('-M', '--minBoot', type = 'numeric', default = 80, help = 'The minimal bootstrap value for taxonomic classification with DADA2. Default is 80.')
 
 # Parse the arguments
 args <- parser$parse_args()
@@ -57,7 +57,7 @@ trim_primers <- args$trim_primers
 primers <- args$primers
 minlen <- args$minlen
 trunclen <- args$trunclen
-rm_singleton <- args$rm_singleton
+singleton <- args$singleton
 boldigger <- args$BOLDigger
 user <- args$user
 password <- args$password
@@ -117,7 +117,7 @@ if (!is.null(pipeline_path)) {
 #############################
 
 if(!is.null(download)){
-  cat('\n  ___ _ __   __ _ 
+  cat('  ___ _ __   __ _ 
  / _ \\ \'_ \\ / _` |
 |  __/ | | | (_| |
  \\___|_| |_|\\__,_|\n')
@@ -617,7 +617,7 @@ for(iter in 1:length(paths)){
   seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
   
   # Remove singletons
-  if (rm_singleton == T & dim(seqtab.nochim)[1] > 1){
+  if (singleton == T & dim(seqtab.nochim)[1] > 1){
     
     # Message
     step <- step + 1
