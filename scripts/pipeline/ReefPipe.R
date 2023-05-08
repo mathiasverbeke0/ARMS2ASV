@@ -95,9 +95,21 @@ if(boldigger == T & (is.null(password) | is.null(user))){
 ## LOCATION OF MAIN PIPELINE ##
 ###############################
 
-pipeline_path <- commandArgs()[4]
-pipeline_path <- gsub(pattern = '\\\\', replacement = '/', pipeline_path)
-pipeline_path <- gsub(pattern = '--file=', replacement = '', pipeline_path)
+args <- commandArgs()
+pipeline_path <- NULL
+for (arg in args) {
+  if (startsWith(arg, "--file=")) {
+    pipeline_path <- sub("^--file=", "", arg)
+    break
+  }
+}
+
+if (!is.null(pipeline_path)) {
+  pipeline_path <- normalizePath(pipeline_path)
+  print(pipeline_path)
+} else {
+  stop("Pipeline path not found.")
+}
 
 
 #############################
@@ -192,7 +204,8 @@ ToInstall <- c(
   'ShortRead',
   'vegan',
   'Biostrings',
-  'readxl'
+  'readxl',
+  'stringr'
 )
 
 for (item in ToInstall){
@@ -213,6 +226,7 @@ suppressPackageStartupMessages(library(stats))
 suppressPackageStartupMessages(library(Biostrings))
 suppressPackageStartupMessages(library(ShortRead))
 suppressPackageStartupMessages(library(vegan))
+suppressPackageStartupMessages(library(stringr))
 
 
 #############################################
