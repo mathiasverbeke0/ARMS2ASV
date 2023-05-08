@@ -27,8 +27,8 @@ for (ref_file in ref_files) {
   ref_base <- basename(ref_file)
   ref_name <- (basename(fs::path_ext_remove(ref_file)))
   
-  # Extract the taxonomic levels
-  tax_levels <- gsub(' ', '', str_to_title(strsplit(config_df[config_df$Database == ref_base, "TaxonomicLevel"], ";")[[1]]))
+  # Extract the taxonomic levels per reference database from config_df
+  ref_levels <- gsub(' ', '', str_to_title(strsplit(config_df[config_df$Database == ref_base, "TaxonomicLevel"], ";")[[1]]))
   
   cat(paste('Reference database:', ref_name, '\n'))
   
@@ -38,7 +38,7 @@ for (ref_file in ref_files) {
   }
   
   # Create the taxonomy table using the DADA2 assignTaxonomy function
-  tax_table <- assignTaxonomy(seqs, ref_file, taxLevels = tax_levels, minBoot = minBoot)
+  tax_table <- assignTaxonomy(seqs, ref_file, taxLevels = ref_levels, minBoot = minBoot)
   tax_table <- cbind(ID = IDs, tax_table)
   
   # Print the taxonomy table to an Excel file
