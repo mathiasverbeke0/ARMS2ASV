@@ -1,7 +1,3 @@
-#library(dada2)
-#library(Biostrings)
-#library(xlsx)
-
 # Get a list of all reference database files in the reference database directory
 ref_files <- list.files(path = normalizePath(file.path(dirname(pipeline_path), '../../data/reference/')), full.names = T)
 
