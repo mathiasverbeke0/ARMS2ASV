@@ -91,9 +91,9 @@ if(boldigger == T & (is.null(password) | is.null(user))){
 }
 
 
-###############################
-## LOCATION OF MAIN PIPELINE ##
-###############################
+####################################
+## ABSOLUTE PATH OF MAIN PIPELINE ##
+####################################
 
 args <- commandArgs()
 pipeline_path <- NULL
@@ -125,7 +125,7 @@ if(!is.null(download)){
   cat('\nFetching fastq files from ENA\n\n')
   
   # Source the R-script
-  source(file.path(dirname(pipeline_path), 'dependencies/ENAFetcher.R'))
+  source(normalizePath(file.path(dirname(pipeline_path), 'dependencies/ENAFetcher.R')))
   
   # Set run_mode to multi
   run_mode = 'multi'
@@ -136,12 +136,12 @@ if(!is.null(download)){
 ## SINGLE OR MULTI RUN EXECUTION ##
 ###################################
 
-if (run_mode == 'single'){
+if (run_mode == 'single' & is.null(download)){
   paths = mainpath
-  
 } else if(run_mode == 'multi'){
   paths = list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE)
 }
+
 
 ##############################
 ## DIRECTORY CONTENTS CHECK ##
@@ -300,15 +300,15 @@ for(iter in 1:length(paths)){
     cat(paste0(label, step, '] Removing primers with cutadapt and prefiltering the reads\n'))
     
     # Make a new directory to store prefiltered sequences
-    path.cut <- file.path(paths[iter], '01.Prefiltered')
+    path.cut <- normalizePath(file.path(paths[iter], '01.Prefiltered'))
     
     if(!dir.exists(path.cut)){
       dir.create(path.cut)
     }
     
     # Make files to store the prefiltered sequences
-    FwdRead.cut <- file.path(path.cut, basename(FwdRead))
-    RevRead.cut <- file.path(path.cut, basename(RevRead))
+    FwdRead.cut <- normalizePath(file.path(path.cut, basename(FwdRead)))
+    RevRead.cut <- normalizePath(file.path(path.cut, basename(RevRead)))
     
     # Define forward and reverse primer AND construct the cutadapt arguments
     FWD <- primers[1] 
@@ -338,11 +338,11 @@ for(iter in 1:length(paths)){
     cat(paste0(label, step, '] Prefiltering the reads\n'))
     
     # Make directory path to store prefiltered sequences
-    path.cut <- file.path(paths[iter], '01.Prefiltered')
+    path.cut <- normalizePath(file.path(paths[iter], '01.Prefiltered'))
     
     # Make files to store the prefiltered sequences
-    FwdRead.cut <- file.path(path.cut, basename(FwdRead))
-    RevRead.cut <- file.path(path.cut, basename(RevRead))
+    FwdRead.cut <- normalizePath(file.path(path.cut, basename(FwdRead)))
+    RevRead.cut <- normalizePath(file.path(path.cut, basename(RevRead)))
     
     length_filtered <- filterAndTrim(FwdRead, FwdRead.cut, RevRead, RevRead.cut, minLen = 1, multithread = TRUE)
     
@@ -367,7 +367,7 @@ for(iter in 1:length(paths)){
   # Make PDF with read quality profiles
   suppressWarnings({
     
-    pdf(file = file.path(path.cut, 'QualityProfilesPreFiltered.pdf'))
+    pdf(file = normalizePath(file.path(path.cut, 'QualityProfilesPreFiltered.pdf')))
     
     # Forward reads
     if(length(FwdRead.cut) <= 10){
@@ -411,11 +411,11 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Trimming the prefiltered reads\n'))
   
   # Make directory path to store prefiltered sequences
-  path.filt <- file.path(paths[iter], '02.Filtered_Trimmed')
+  path.filt <- normalizePath(file.path(paths[iter], '02.Filtered_Trimmed'))
   
   # Make files to store the trimmed sequences
-  FwdRead.filt <- file.path(path.filt, paste0(sample.names, "_1_filt.fastq.gz"))
-  RevRead.filt <- file.path(path.filt, paste0(sample.names, "_2_filt.fastq.gz"))
+  FwdRead.filt <- normalizePath(file.path(path.filt, paste0(sample.names, "_1_filt.fastq.gz")))
+  RevRead.filt <- normalizePath(file.path(path.filt, paste0(sample.names, "_2_filt.fastq.gz")))
   
   names(FwdRead.filt) <- sample.names
   names(RevRead.filt) <- sample.names
@@ -434,7 +434,7 @@ for(iter in 1:length(paths)){
                        compress=TRUE,       # Output files are compressed
                        multithread = T)     # On Windows set multithread = FALSE
   
-  saveRDS(out, file.path(path.filt, 'Filtered_Trimmed_Logfile.rds'))
+  saveRDS(out, normalizePath(file.path(path.filt, 'Filtered_Trimmed_Logfile.rds')))
   
   
   ####################################################
@@ -447,7 +447,7 @@ for(iter in 1:length(paths)){
   
   # Make PDF with read quality profiles
   suppressWarnings({
-    pdf(file = file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf'))
+    pdf(file = normalizePath(file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf')))
     
     # Forward reads
     if(length(FwdRead.filt) <= 10){
@@ -490,7 +490,7 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Learning error rates\n'))
   
   # Make directory path to store the error plots
-  path.error <- file.path(paths[iter], '03.Error_Rates')
+  path.error <- normalizePath(file.path(paths[iter], '03.Error_Rates'))
   
   if(!dir.exists(path.error)){
     cat(paste('Creating output directory:', path.error,'\n'))
@@ -504,7 +504,7 @@ for(iter in 1:length(paths)){
   errR <- learnErrors(RevRead.filt, multithread=TRUE)
   
   # Construct and store the error plots
-  pdf(file = file.path(path.error, paste0(sample.names[1], '.pdf')))
+  pdf(file = normalizePath(file.path(path.error, paste0(sample.names[1], '.pdf'))))
   plotErrors(errF, nominalQ=TRUE)
   plotErrors(errR, nominalQ=TRUE)
   dev.off()
@@ -519,7 +519,7 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Inferring sample\n'))
   
   # Make directory path to store the dada objects
-  path.infer <- file.path(paths[iter], '04.Sample_Inference')
+  path.infer <- normalizePath(file.path(paths[iter], '04.Sample_Inference'))
   
   if(!dir.exists(path.infer)){
     cat(paste('Creating output directory:', path.infer, '\n'))
@@ -533,8 +533,8 @@ for(iter in 1:length(paths)){
   cat('\n')
   
   # Store the dada objects
-  saveRDS(dadaFwd, file.path(path.infer, 'dadaFwd.rds'))
-  saveRDS(dadaRev, file.path(path.infer, 'dadaRev.rds'))
+  saveRDS(dadaFwd, normalizePath(file.path(path.infer, 'dadaFwd.rds')))
+  saveRDS(dadaRev, normalizePath(file.path(path.infer, 'dadaRev.rds')))
   
   
   ########################
@@ -546,7 +546,7 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Merging paired reads\n'))
   
   # Make directory path to store the merger object
-  path.merge <- file.path(paths[iter], '05.Merged_Reads')
+  path.merge <- normalizePath(file.path(paths[iter], '05.Merged_Reads'))
   
   if(!dir.exists(path.merge)){
     cat(paste('Creating output directory:', path.merge, '\n'))
@@ -557,7 +557,7 @@ for(iter in 1:length(paths)){
   mergers <- mergePairs(dadaFwd, FwdRead.filt, dadaRev, RevRead.filt, minOverlap = 10, maxMismatch = 1, verbose=T)
 
   # Write mergers object to an rds file
-  saveRDS(mergers, file.path(path.merge, 'mergers.rds'))
+  saveRDS(mergers, normalizePath(file.path(path.merge, 'mergers.rds')))
   
   
   ##############################
@@ -569,7 +569,7 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Constructing sequence tables\n'))
   
   # Make directory path to store COI ASV sequences
-  path.seq <- file.path(paths[iter], '06.Seq_Table')
+  path.seq <- normalizePath(file.path(paths[iter], '06.Seq_Table'))
   
   if(!dir.exists(path.seq)){
     cat(paste('Creating output directory:', path.seq, '\n'))
@@ -591,8 +591,8 @@ for(iter in 1:length(paths)){
               '\nExcluding', paths[iter], 'from paths to take into consideration.\n'))
     
     # Write failed ASV generation to output file
-    if(!file.exists(file.path(mainpath, 'log.txt'))){
-      file.create(file.path(mainpath, 'log.txt'))
+    if(!file.exists(normalizePath(file.path(mainpath, 'log.txt')))){
+      file.create(normalizePath(file.path(mainpath, 'log.txt')))
     }
     
     # Find index of path to remove
@@ -641,8 +641,8 @@ for(iter in 1:length(paths)){
   asv_fasta <- c(rbind(asv_headers, asv_seqs))
   
   # write ASV sequences and headers to a text and rds file
-  write(asv_fasta, file.path(path.seq, 'COI_ASVS.fasta'))
-  saveRDS(seqtab.nochim, file.path(path.seq, 'seqtab.rds'))
+  write(asv_fasta, normalizePath(file.path(path.seq, 'COI_ASVS.fasta')))
+  saveRDS(seqtab.nochim, normalizePath(file.path(path.seq, 'seqtab.rds')))
   
   cat('\n\n')
 }
@@ -663,10 +663,10 @@ if((reference == T | boldigger == T) & length(paths) > 0){
  \\__\\__,_/_/\\_\\\n\n')
   
   # Get paths to ASV multifasta files
-  paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')
+  paths.ASV <- normalizePath(file.path(paths, '06.Seq_Table/COI_ASVS.fasta'))
   
   # Construct paths to directories where taxonomy files will be stored
-  paths.taxon <- file.path(paths, '07.Taxonomy')
+  paths.taxon <- normalizePath(file.path(paths, '07.Taxonomy'))
   
   # Create directory where taxonomy is stored
   for(path.taxon in paths.taxon){
@@ -699,7 +699,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       path.ASV <- paths.ASV[iter]
       
       # Execute taxonomic classification with DADA2
-      source(file.path(dirname(pipeline_path), 'dependencies/TaxonomicClassification.R'))
+      source(normalizePath(file.path(dirname(pipeline_path), 'dependencies/TaxonomicClassification.R')))
     }
   }
   
@@ -749,16 +749,16 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       system2(command = 'boldigger-cline', args = c('first_hit', excel_file))
       
       # Read in the second sheet of the BOLDigger output excel file
-      bold_taxonomy <- read.xlsx(file = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit')
+      bold_taxonomy <- read.xlsx(file = normalizePath(file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit'))
       
       # Create directory to store only the first hits
-      if(!dir.exists(file.path(path.taxon, 'BOLDSYSTEMS'))){
-        cat(paste('Saving first hit outputs to:', file.path(path.taxon, 'BOLDSYSTEMS'), '\n'))
-        dir.create(file.path(path.taxon, 'BOLDSYSTEMS'))
+      if(!dir.exists(normalizePath(file.path(path.taxon, 'BOLDSYSTEMS')))){
+        cat(paste('Saving first hit outputs to:', normalizePath(file.path(path.taxon, 'BOLDSYSTEMS')), '\n'))
+        dir.create(normalizePath(file.path(path.taxon, 'BOLDSYSTEMS')))
       }
       
       # Write the contents of the second sheet to a separate excel file
-      write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLDSYSTEMS', 'BOLD_first_hit.xlsx'))
+      write.xlsx(x = bold_taxonomy, file = normalizePath(file.path(path.taxon, 'BOLDSYSTEMS', 'BOLD_first_hit.xlsx')))
       
       # Remove the original BOLDigger output files
       for(non_dir in non_dirs){unlink(x = non_dir)}
