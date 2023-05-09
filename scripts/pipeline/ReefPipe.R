@@ -11,19 +11,65 @@ cat(' ____  _____ _____ _____ ____ ___ ____  _____
 |_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n\n')
 
 
+############################
+## DOWNLOADING R PACKAGES ##
+############################
+
+cat('\n _ _ _     
+| (_) |__  
+| | | \'_ \\ 
+| | | |_) |
+|_|_|_.__/ \n')
+
+cat('\nInstalling and loading all packages\n')
+
+pkg <- installed.packages()[,'Package']
+
+ToInstall <- c(
+  'xlsx',
+  'dada2',
+  'ggplot2',
+  'stats', 
+  'Biostrings',
+  'ShortRead',
+  'vegan',
+  'Biostrings',
+  'readxl',
+  'stringr',
+  'argparse',
+  'purrr',
+  'readxl',
+  'dplyr'
+)
+
+for (item in ToInstall){
+  if (!item %in% pkg) {
+    install.packages(item)
+  }
+}
+
+
+###########################################
+## LOADING PACKAGES AND SOURCING SCRIPTS ##
+###########################################
+
+suppressPackageStartupMessages(library(xlsx))
+suppressPackageStartupMessages(library(dada2))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(stats))
+suppressPackageStartupMessages(library(Biostrings))
+suppressPackageStartupMessages(library(ShortRead))
+suppressPackageStartupMessages(library(vegan))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(argparse))
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(readxl))
+suppressPackageStartupMessages(library(dplyr))
+
+
 ####################################
 ## Parsing command line arguments ##
 ####################################
-
-# Download argparse package
-if (!'argparse' %in% installed.packages()[,'Package']) {
-  install.packages('argparse')
-}
-
-# Load package
-suppressWarnings({
-  suppressPackageStartupMessages(library(argparse))
-})
 
 parser <- ArgumentParser(description = 'Reefpipe command line arguments')
 
@@ -46,6 +92,10 @@ parser$add_argument('-P', '--password', type = 'character', required = FALSE, he
 parser$add_argument('-R', '--reference', action = 'store_true', help = 'Perform taxonomic classification with DADA2 using own reference databases.')
 parser$add_argument('-M', '--minBoot', type = 'numeric', default = 80, help = 'The minimal bootstrap value for taxonomic classification with DADA2. Default is 80.')
 
+# Command line arguments for taxonomic table fusing
+parser$add_argument('-F', '--fuse', action = 'store_true', help = 'Fuse the information of all taxonomic tables.')
+parser$add_argument('-f', '--fuseLevels', type = 'character', default = 'Phylum,Class,Order,Family,Genus,Species', help = 'The taxonomic levels used for fusing all taxonomic tables. Default levels are Phylum,Class,Order,Family,Genus,Species.')
+
 # Parse the arguments
 args <- parser$parse_args()
 
@@ -63,6 +113,29 @@ user <- args$user
 password <- args$password
 reference <- args$reference
 minBoot <- args$minBoot
+fuse <- args$fuse
+fuseLevels <- args$fuseLevels
+
+
+####################################
+## ABSOLUTE PATH OF MAIN PIPELINE ##
+####################################
+
+args <- commandArgs()
+pipeline_path <- NULL
+for (arg in args) {
+  if (startsWith(arg, "--file=")) {
+    pipeline_path <- sub("^--file=", "", arg)
+    break
+  }
+}
+
+if (!is.null(pipeline_path)) {
+  pipeline_path <- normalizePath(pipeline_path)
+  
+} else {
+  stop("Pipeline path not found.")
+}
 
 
 ########################################
@@ -90,27 +163,34 @@ if(boldigger == T & (is.null(password) | is.null(user))){
   stop('If --BOLDigger is specified, --user and --password also need to be specified.')
 }
 
+# Fusing taxonomic tables requires all reference databases to have the levels specified with --fuseLevels
+if(fuse == TRUE){
+  source(file.path(dirname(pipeline_path), 'dependencies/taxLevelCheck.R'))
+}
 
-####################################
-## ABSOLUTE PATH OF MAIN PIPELINE ##
-####################################
+# Fusing taxonomic tables cannot be done if only the --BOLDigger option is selected
+if(boldigger == T & fuse == T & reference ==F){
+  cat('Warning: you cannot merge taxonomic tables if only the BOLDSYSTEMS table is generated.')
+  
+  # Change fuse to false
+  fuse = F
+}
 
-args <- commandArgs()
-pipeline_path <- NULL
-for (arg in args) {
-  if (startsWith(arg, "--file=")) {
-    pipeline_path <- sub("^--file=", "", arg)
-    break
+# If --reference is selected, it must contain reference databases
+if(reference == T){
+  # Get a list of all reference database files in the reference database directory
+  ref_files <- list.files(path = file.path(dirname(pipeline_path), '../../data/reference/'), full.names = T)
+  
+  # Get the configuration file
+  config_file <- file.path(dirname(pipeline_path), '../../data/reference/config.txt')
+  
+  # Remove config file from ref_files
+  ref_files <- ref_files[!basename(ref_files) == 'config.txt']
+  
+  if(length(ref_files) == 0){
+    stop('The reference database folder is empty. Please make sure there are reference databases available in the directory.')
   }
 }
-
-if (!is.null(pipeline_path)) {
-  pipeline_path <- normalizePath(pipeline_path)
-  print(pipeline_path)
-} else {
-  stop("Pipeline path not found.")
-}
-
 
 #############################
 ## DOWNLOAD ENA ACCESSIONS ##
@@ -125,7 +205,7 @@ if(!is.null(download)){
   cat('\nFetching fastq files from ENA\n\n')
   
   # Source the R-script
-  source(normalizePath(file.path(dirname(pipeline_path), 'dependencies/ENAFetcher.R')))
+  source(file.path(dirname(pipeline_path), 'dependencies/ENAFetcher.R'))
   
   # Set run_mode to multi
   run_mode = 'multi'
@@ -179,54 +259,6 @@ if(run_mode == 'multi'){
     }
   }
 }
-
-
-############################
-## DOWNLOADING R PACKAGES ##
-############################
-
-cat('\n _ _ _     
-| (_) |__  
-| | | \'_ \\ 
-| | | |_) |
-|_|_|_.__/ \n')
-
-cat('\nInstalling and loading all packages\n')
-
-pkg <- installed.packages()[,'Package']
-
-ToInstall <- c(
-  'xlsx',
-  'dada2',
-  'ggplot2',
-  'stats', 
-  'Biostrings',
-  'ShortRead',
-  'vegan',
-  'Biostrings',
-  'readxl',
-  'stringr'
-)
-
-for (item in ToInstall){
-  if (!item %in% pkg) {
-    install.packages(item)
-  }
-}
-
-
-###########################################
-## LOADING PACKAGES AND SOURCING SCRIPTS ##
-###########################################
-
-suppressPackageStartupMessages(library(xlsx))
-suppressPackageStartupMessages(library(dada2))
-suppressPackageStartupMessages(library(ggplot2))
-suppressPackageStartupMessages(library(stats))
-suppressPackageStartupMessages(library(Biostrings))
-suppressPackageStartupMessages(library(ShortRead))
-suppressPackageStartupMessages(library(vegan))
-suppressPackageStartupMessages(library(stringr))
 
 
 #############################################
@@ -300,15 +332,15 @@ for(iter in 1:length(paths)){
     cat(paste0(label, step, '] Removing primers with cutadapt and prefiltering the reads\n'))
     
     # Make a new directory to store prefiltered sequences
-    path.cut <- normalizePath(file.path(paths[iter], '01.Prefiltered'))
+    path.cut <- file.path(paths[iter], '01.Prefiltered')
     
     if(!dir.exists(path.cut)){
       dir.create(path.cut)
     }
     
     # Make files to store the prefiltered sequences
-    FwdRead.cut <- normalizePath(file.path(path.cut, basename(FwdRead)))
-    RevRead.cut <- normalizePath(file.path(path.cut, basename(RevRead)))
+    FwdRead.cut <- file.path(path.cut, basename(FwdRead))
+    RevRead.cut <- file.path(path.cut, basename(RevRead))
     
     # Define forward and reverse primer AND construct the cutadapt arguments
     FWD <- primers[1] 
@@ -338,11 +370,11 @@ for(iter in 1:length(paths)){
     cat(paste0(label, step, '] Prefiltering the reads\n'))
     
     # Make directory path to store prefiltered sequences
-    path.cut <- normalizePath(file.path(paths[iter], '01.Prefiltered'))
+    path.cut <- file.path(paths[iter], '01.Prefiltered')
     
     # Make files to store the prefiltered sequences
-    FwdRead.cut <- normalizePath(file.path(path.cut, basename(FwdRead)))
-    RevRead.cut <- normalizePath(file.path(path.cut, basename(RevRead)))
+    FwdRead.cut <- file.path(path.cut, basename(FwdRead))
+    RevRead.cut <- file.path(path.cut, basename(RevRead))
     
     length_filtered <- filterAndTrim(FwdRead, FwdRead.cut, RevRead, RevRead.cut, minLen = 1, multithread = TRUE)
     
@@ -367,7 +399,7 @@ for(iter in 1:length(paths)){
   # Make PDF with read quality profiles
   suppressWarnings({
     
-    pdf(file = normalizePath(file.path(path.cut, 'QualityProfilesPreFiltered.pdf')))
+    pdf(file = file.path(path.cut, 'QualityProfilesPreFiltered.pdf'))
     
     # Forward reads
     if(length(FwdRead.cut) <= 10){
@@ -411,11 +443,11 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Trimming the prefiltered reads\n'))
   
   # Make directory path to store prefiltered sequences
-  path.filt <- normalizePath(file.path(paths[iter], '02.Filtered_Trimmed'))
+  path.filt <- file.path(paths[iter], '02.Filtered_Trimmed')
   
   # Make files to store the trimmed sequences
-  FwdRead.filt <- normalizePath(file.path(path.filt, paste0(sample.names, "_1_filt.fastq.gz")))
-  RevRead.filt <- normalizePath(file.path(path.filt, paste0(sample.names, "_2_filt.fastq.gz")))
+  FwdRead.filt <- file.path(path.filt, paste0(sample.names, "_1_filt.fastq.gz"))
+  RevRead.filt <- file.path(path.filt, paste0(sample.names, "_2_filt.fastq.gz"))
   
   names(FwdRead.filt) <- sample.names
   names(RevRead.filt) <- sample.names
@@ -434,7 +466,7 @@ for(iter in 1:length(paths)){
                        compress=TRUE,       # Output files are compressed
                        multithread = T)     # On Windows set multithread = FALSE
   
-  saveRDS(out, normalizePath(file.path(path.filt, 'Filtered_Trimmed_Logfile.rds')))
+  saveRDS(out, file.path(path.filt, 'Filtered_Trimmed_Logfile.rds'))
   
   
   ####################################################
@@ -447,7 +479,7 @@ for(iter in 1:length(paths)){
   
   # Make PDF with read quality profiles
   suppressWarnings({
-    pdf(file = normalizePath(file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf')))
+    pdf(file = file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf'))
     
     # Forward reads
     if(length(FwdRead.filt) <= 10){
@@ -490,7 +522,7 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Learning error rates\n'))
   
   # Make directory path to store the error plots
-  path.error <- normalizePath(file.path(paths[iter], '03.Error_Rates'))
+  path.error <- file.path(paths[iter], '03.Error_Rates')
   
   if(!dir.exists(path.error)){
     cat(paste('Creating output directory:', path.error,'\n'))
@@ -504,7 +536,7 @@ for(iter in 1:length(paths)){
   errR <- learnErrors(RevRead.filt, multithread=TRUE)
   
   # Construct and store the error plots
-  pdf(file = normalizePath(file.path(path.error, paste0(sample.names[1], '.pdf'))))
+  pdf(file = file.path(path.error, paste0(sample.names[1], '.pdf')))
   plotErrors(errF, nominalQ=TRUE)
   plotErrors(errR, nominalQ=TRUE)
   dev.off()
@@ -519,7 +551,7 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Inferring sample\n'))
   
   # Make directory path to store the dada objects
-  path.infer <- normalizePath(file.path(paths[iter], '04.Sample_Inference'))
+  path.infer <- file.path(paths[iter], '04.Sample_Inference')
   
   if(!dir.exists(path.infer)){
     cat(paste('Creating output directory:', path.infer, '\n'))
@@ -533,8 +565,8 @@ for(iter in 1:length(paths)){
   cat('\n')
   
   # Store the dada objects
-  saveRDS(dadaFwd, normalizePath(file.path(path.infer, 'dadaFwd.rds')))
-  saveRDS(dadaRev, normalizePath(file.path(path.infer, 'dadaRev.rds')))
+  saveRDS(dadaFwd, file.path(path.infer, 'dadaFwd.rds'))
+  saveRDS(dadaRev, file.path(path.infer, 'dadaRev.rds'))
   
   
   ########################
@@ -546,7 +578,7 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Merging paired reads\n'))
   
   # Make directory path to store the merger object
-  path.merge <- normalizePath(file.path(paths[iter], '05.Merged_Reads'))
+  path.merge <- file.path(paths[iter], '05.Merged_Reads')
   
   if(!dir.exists(path.merge)){
     cat(paste('Creating output directory:', path.merge, '\n'))
@@ -557,7 +589,7 @@ for(iter in 1:length(paths)){
   mergers <- mergePairs(dadaFwd, FwdRead.filt, dadaRev, RevRead.filt, minOverlap = 10, maxMismatch = 1, verbose=T)
 
   # Write mergers object to an rds file
-  saveRDS(mergers, normalizePath(file.path(path.merge, 'mergers.rds')))
+  saveRDS(mergers, file.path(path.merge, 'mergers.rds'))
   
   
   ##############################
@@ -569,7 +601,7 @@ for(iter in 1:length(paths)){
   cat(paste0(label, step, '] Constructing sequence tables\n'))
   
   # Make directory path to store COI ASV sequences
-  path.seq <- normalizePath(file.path(paths[iter], '06.Seq_Table'))
+  path.seq <- file.path(paths[iter], '06.Seq_Table')
   
   if(!dir.exists(path.seq)){
     cat(paste('Creating output directory:', path.seq, '\n'))
@@ -591,8 +623,8 @@ for(iter in 1:length(paths)){
               '\nExcluding', paths[iter], 'from paths to take into consideration.\n'))
     
     # Write failed ASV generation to output file
-    if(!file.exists(normalizePath(file.path(mainpath, 'log.txt')))){
-      file.create(normalizePath(file.path(mainpath, 'log.txt')))
+    if(!file.exists(file.path(mainpath, 'log.txt'))){
+      file.create(file.path(mainpath, 'log.txt'))
     }
     
     # Find index of path to remove
@@ -641,12 +673,13 @@ for(iter in 1:length(paths)){
   asv_fasta <- c(rbind(asv_headers, asv_seqs))
   
   # write ASV sequences and headers to a text and rds file
-  write(asv_fasta, normalizePath(file.path(path.seq, 'COI_ASVS.fasta')))
-  saveRDS(seqtab.nochim, normalizePath(file.path(path.seq, 'seqtab.rds')))
+  write(asv_fasta, file.path(path.seq, 'COI_ASVS.fasta'))
+  saveRDS(seqtab.nochim, file.path(path.seq, 'seqtab.rds'))
   
   cat('\n\n')
 }
 
+warnings()
 
 ##############################
 ## TAXONOMIC CLASSIFICATION ##
@@ -663,10 +696,10 @@ if((reference == T | boldigger == T) & length(paths) > 0){
  \\__\\__,_/_/\\_\\\n\n')
   
   # Get paths to ASV multifasta files
-  paths.ASV <- normalizePath(file.path(paths, '06.Seq_Table/COI_ASVS.fasta'))
+  paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')
   
   # Construct paths to directories where taxonomy files will be stored
-  paths.taxon <- normalizePath(file.path(paths, '07.Taxonomy'))
+  paths.taxon <- file.path(paths, '07.Taxonomy')
   
   # Create directory where taxonomy is stored
   for(path.taxon in paths.taxon){
@@ -699,7 +732,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       path.ASV <- paths.ASV[iter]
       
       # Execute taxonomic classification with DADA2
-      source(normalizePath(file.path(dirname(pipeline_path), 'dependencies/TaxonomicClassification.R')))
+      source(file.path(dirname(pipeline_path), 'dependencies/TaxonomicClassification.R'))
     }
   }
   
@@ -709,7 +742,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
   #############################################
   
   if(boldigger == T){
-    cat('\n[BOLDigger]')
+    cat('\n\n[BOLDigger]')
     
     
     #########################################
@@ -749,19 +782,35 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       system2(command = 'boldigger-cline', args = c('first_hit', excel_file))
       
       # Read in the second sheet of the BOLDigger output excel file
-      bold_taxonomy <- read.xlsx(file = normalizePath(file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit'))
+      bold_taxonomy <- read.xlsx(file = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit')
       
       # Create directory to store only the first hits
-      if(!dir.exists(normalizePath(file.path(path.taxon, 'BOLDSYSTEMS')))){
-        cat(paste('Saving first hit outputs to:', normalizePath(file.path(path.taxon, 'BOLDSYSTEMS')), '\n'))
-        dir.create(normalizePath(file.path(path.taxon, 'BOLDSYSTEMS')))
+      if(!dir.exists(file.path(path.taxon, 'BOLDSYSTEMS'))){
+        cat(paste('Saving first hit outputs to:', file.path(path.taxon, 'BOLDSYSTEMS')), '\n')
+        dir.create(file.path(path.taxon, 'BOLDSYSTEMS'))
       }
       
       # Write the contents of the second sheet to a separate excel file
-      write.xlsx(x = bold_taxonomy, file = normalizePath(file.path(path.taxon, 'BOLDSYSTEMS', 'BOLD_first_hit.xlsx')))
+      write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLDSYSTEMS', 'BOLD_first_hit.xlsx'))
       
       # Remove the original BOLDigger output files
       for(non_dir in non_dirs){unlink(x = non_dir)}
+    }
+  }
+  
+  if(fuse == T){
+    cat('\n[Merging]')
+    
+    for(iter in 1:length(paths)){
+      
+      # Print iteration message
+      cat(paste0('\nIteration ', iter, ' out of ', length(paths), ': ', basename(paths[iter]), '\n'))
+      
+      # Locations of the taxonomy directory
+      path.taxon <- paths.taxon[iter]
+      
+      # Source the taxonomic table merging script
+      source(file.path(dirname(pipeline_path), 'dependencies/TaxTableMerger.R'))
     }
   }
 }
