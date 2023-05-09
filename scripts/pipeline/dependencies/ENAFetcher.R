@@ -5,20 +5,24 @@
 ############
 
 if(basename(download) == download){
-  download = file.path(mainpath, download)
+  download = normalizePath(file.path(mainpath, download))
 }
 
-data = readLines(download, warn = F)
+data <- readLines(download, warn = F)
 
 runs_samples <- list()
 current_run <- NULL
 
 for(run in data){
   
-  run = gsub(pattern = ' ', replacement = '', run) 
+  # Remove whitespace characters
+  run <- trimws(run)
+  run <- gsub(pattern = ' ', replacement = '', run) 
   
+  # Determine what the first character is
   firstCharacter = substr(run,1,1)
   
+  # If the first character is a >, this is the current run
   if(firstCharacter == '>'){
     current_run <- sub(pattern = '>', replacement = '', run)
     runs_samples[[current_run]] <- c()
@@ -26,6 +30,10 @@ for(run in data){
   
   else if(run == ''){
     next
+  }
+  
+  else if(is.null(current_run)){
+    stop('The ENA input file appears to contain an error.')
   }
   
   else{
@@ -55,8 +63,42 @@ for(run in names(runs_samples)){
     dest_fwd <- file.path(path.download, fwd_file_name)
     dest_rev <- file.path(path.download, rev_file_name)
     
-    download.file(url_fwd, dest_fwd)
-    download.file(url_rev, dest_rev)
+    max_retries <- 3
+    retry_count <- 0
+    download_success <- FALSE
     
+    while (!download_success && retry_count < max_retries) {
+      retry_count <- retry_count + 1
+      tryCatch({
+        download.file(url_fwd, dest_fwd)
+        download_success <- TRUE
+      }, error = function(e) {
+        message(paste("Error downloading file, retrying (", retry_count, "/", max_retries, ")"))
+        Sys.sleep(10)
+      })
+    }
+    
+    if (!download_success) {
+      stop("Failed to download file after", max_retries, "attempts")
+    }
+    
+    max_retries <- 3
+    retry_count <- 0
+    download_success <- FALSE
+    
+    while (!download_success && retry_count < max_retries) {
+      retry_count <- retry_count + 1
+      tryCatch({
+        download.file(url_rev, dest_rev)
+        download_success <- TRUE
+      }, error = function(e) {
+        message(paste("Error downloading file, retrying (", retry_count, "/", max_retries, ")"))
+        Sys.sleep(10)
+      })
+    }
+    
+    if (!download_success) {
+      stop("Failed to download file after", max_retries, "attempts")
+    }
   }
 }
