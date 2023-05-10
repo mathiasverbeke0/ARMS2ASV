@@ -80,6 +80,16 @@ if(reference == T){
     return(x)
   })
   
+  # Remove the genus from the species name
+  if(genus_species == T){
+    tax_tables <- map(tax_tables, function(x){
+      x['Species'] <- apply(x, 1, function(row){
+        row['Species'] <- trimws(gsub(pattern = row['Genus'], replacement = '', x = row['Species']))
+      })
+      return(x)
+    })
+  }
+  
   # Remove duplicate rows in the taxonomic tables (these should not be there in the first place)
   tax_tables <- map(tax_tables, function(x){
     x[!duplicated(x), ]
