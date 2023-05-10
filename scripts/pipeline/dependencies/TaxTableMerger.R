@@ -207,7 +207,7 @@ if(reference == T){
       merged <- merged[merged$ID != ID,]
       
       # Write the IDs for ambiguous taxonomies to a log file
-      cat(ID, 
+      cat(paste0(ID, '\n'), 
           file = file.path(path.taxon, 'TaxLog.txt'), 
           append = T)
     }
@@ -229,11 +229,21 @@ if(reference == T){
 
 if(boldigger == T & reference == T){
   
+  # Add ambiguity and supplemented column (for later in the code)
+  bold_taxa[, 'Supplemented'] <- NA
+  bold_taxa[,'Ambiguity'] <- NA
+  
   # Iterate over rows of BOLDSYSTEMS taxonomy table
   for(row in 1:nrow(bold_taxa)){
     
     # ASV ID
     ASV_ID <- sub("^>", "", bold_taxa$ID[row])
+    
+    # Check if the ASV ID is ambiguous in reference taxonomic tables
+    if(ASV_ID %in% unique(ambiguous$ID)){
+      # Specify that there is ambiguous taxonomy available
+      bold_taxa[row, 'Ambiguity'] <- 'Available'
+    }
     
     ####################################################
     ## If all tax levels for BOLDSYSTEMS ASV are full ##
@@ -260,7 +270,6 @@ if(boldigger == T & reference == T){
     }
     
     else if(all(is.na(bold_taxa[row, fuseLevels2]))){
-      
       cat(paste(ASV_ID, '\n'), file = file.path(path.taxon, 'TaxLog.txt'), append = T)
     }
     
@@ -371,8 +380,6 @@ if(boldigger == T & reference == T){
         
         # Add an ambiguity warning
         bold_taxa[row, 'Ambiguity'] <- 'Added'
-      } else{
-        bold_taxa[row, 'Ambiguity'] <- 'Available'
       }
     }
   }
