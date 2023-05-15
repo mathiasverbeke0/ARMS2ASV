@@ -197,7 +197,7 @@ if(reference == T){
 #############################
 
 if(!is.null(download)){
-  cat('  ___ _ __   __ _ 
+  cat('\n  ___ _ __   __ _ 
  / _ \\ \'_ \\ / _` |
 |  __/ | | | (_| |
  \\___|_| |_|\\__,_|\n')
@@ -676,10 +676,36 @@ for(iter in 1:length(paths)){
   write(asv_fasta, file.path(path.seq, 'COI_ASVS.fasta'))
   saveRDS(seqtab.nochim, file.path(path.seq, 'seqtab.rds'))
   
+  
+  #####################
+  ## ASV RAREFACTION ##
+  #####################
+  
+  # Message
+  step <- step + 1
+  cat(paste0(label, step, '] plotting ASV rarefaction\n'))
+  
+  if(nrow(seqtab.nochim) > 1){
+    
+    # Make directory path to store ecological anlysis results
+    path.eco <- file.path(paths[iter], '08.EcologicalAnalysis')
+    
+    if(!dir.exists(path.eco)){
+      cat(paste('Creating output directory:', path.eco, '\n'))
+      dir.create(path.eco)
+    }
+    
+    # Execute ASV rarefaction script
+    source(file.path(dirname(pipeline_path), 'dependencies/Rarefaction.R'))
+  } 
+  
+  else{
+    cat('Rarefaction not possible due to the sequence table having only 1 row.\n')
+  }
+  
   cat('\n\n')
 }
 
-warnings()
 
 ##############################
 ## TAXONOMIC CLASSIFICATION ##
@@ -798,7 +824,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
     }
   }
   
-  if(fuse == T){
+  if(fuse){
     cat('\n[Merging]')
     
     for(iter in 1:length(paths)){
