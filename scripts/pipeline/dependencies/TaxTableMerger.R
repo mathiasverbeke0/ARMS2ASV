@@ -306,7 +306,7 @@ if(boldigger == T & reference == T){
         if(grepl(pattern = bold_string, x = reference_string)){
           
           # Merge BOLDSYSTEMS and reference table sources
-          source <- paste(c(bold_taxa[row, 'source'], merged[merged$ID == ASV_ID, 'source']), collapse = ';')
+          source <- merged[merged$ID == ASV_ID, 'source']
           
           # Update the sources in the BOLDSYSTEMS taxonomic table
           bold_taxa[row, c('source')] <- source
@@ -387,5 +387,35 @@ if(boldigger == T & reference == T){
   # Storing supplemented BOLDSYSTEMS taxonomic table in excel file
   write.xlsx(bold_taxa, file = file.path(path.taxon, 'Consensus.xlsx'))
 } else if(boldigger == F & reference == T){
+  
+  # Manipulating merged taxonomic table so that it resembles the supplemented BOLDSYSTEMS taxonomic table
+  merged$Similarity <- NA
+  merged$Supplemented <- NA
+  merged$Ambiguity <- NA
+  
+  merged$ID <- paste0('>', merged$ID)
+  print(merged)
+  for(ambiguous_ID in unique(ambiguous$ID)){
+    print(ambiguous_ID)
+    # Create an empty row with desired column names
+    new_row <- data.frame(matrix(ncol = ncol(merged), nrow = 1))
+    
+    # Replace the column names with the column names of the merged data frame
+    colnames(new_row) <- colnames(merged)  
+    
+    # Add ID of the ambiguous ASVs back to the merged data frame
+    new_row$ID <- paste0('>', ambiguous_ID)
+    
+    # Add Available flag in the Ambiguity column
+    new_row$Ambiguity <- 'Available'
+    
+    # Add the empty row to the dataframe
+    merged <- rbind(merged, new_row)
+  }
+  
+  # Sort the merged data frame (natural or human sorting)
+  merged <- merged[match(mixedsort(merged$ID), merged$ID),]
+  
+  # Storing merged taxonomic table in excel file
   write.xlsx(merged, file = file.path(path.taxon, 'Consensus.xlsx'))
 }
