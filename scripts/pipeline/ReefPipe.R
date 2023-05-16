@@ -39,7 +39,8 @@ ToInstall <- c(
   'argparse',
   'purrr',
   'readxl',
-  'dplyr'
+  'dplyr',
+  'gtools'
 )
 
 for (item in ToInstall){
@@ -65,7 +66,7 @@ suppressPackageStartupMessages(library(argparse))
 suppressPackageStartupMessages(library(purrr))
 suppressPackageStartupMessages(library(readxl))
 suppressPackageStartupMessages(library(dplyr))
-
+suppressPackageStartupMessages(library(gtools))
 
 ####################################
 ## Parsing command line arguments ##
