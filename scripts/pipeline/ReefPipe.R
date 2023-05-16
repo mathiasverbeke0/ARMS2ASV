@@ -725,6 +725,9 @@ if((reference == T | boldigger == T) & length(paths) > 0){
   # Get paths to ASV multifasta files
   paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')
   
+  # Get paths to transformed ASV multifasta files (BOLDigger renames the used multifasta files to COI_ASVS_done.fasta)
+  boldigger.paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS_done.fasta')
+  
   # Construct paths to directories where taxonomy files will be stored
   paths.taxon <- file.path(paths, '07.Taxonomy')
   
@@ -771,7 +774,6 @@ if((reference == T | boldigger == T) & length(paths) > 0){
   if(boldigger == T){
     cat('\n\n[BOLDigger]')
     
-    
     #########################################
     ## ITERATION OVER EVERY SEQUENCING RUN ##
     #########################################
@@ -784,11 +786,12 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       # Locations of the ASV multifasta file and taxonomy directory
       path.taxon <- paths.taxon[iter]
       path.ASV <- paths.ASV[iter]
+      boldigger.path.ASV <- boldigger.paths.ASV[iter]
       
       # Execute the BOLDigger command line tool: find top 20 hits
       system2(command = 'boldigger-cline', args = c('ie_coi', 
-                                                    'mathiasverbeke', 
-                                                    'BBD936vjl', 
+                                                    user, 
+                                                    password, 
                                                     path.ASV, 
                                                     path.taxon))
       
@@ -802,7 +805,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
         else{non_dirs <- c(non_dirs, file)}
       }
       
-      # Search for the BOLDigger output Excel and .h5.lz file using regular expressions
+      # Search for the BOLDigger output Excel file using regular expressions
       excel_file <- files[grepl(".xlsx$", files)]
       
       # Execute the BOLDigger command line tool: find first hit (top-scoring match)
@@ -822,6 +825,8 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       
       # Remove the original BOLDigger output files
       for(non_dir in non_dirs){unlink(x = non_dir)}
+      
+      file.rename(from = boldigger.path.ASV, to = path.ASV)
     }
   }
   
