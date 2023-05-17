@@ -87,14 +87,14 @@ parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=
 parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='The maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
 
 # Command line arguments for taxonomic classification
-parser$add_argument('-B', '--BOLDigger', action = 'store_false', help = 'Perform taxonomic classification using BOLDigger.')
+parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using BOLDigger.')
 parser$add_argument('-U', '--user', type = 'character', required = FALSE, help = 'The BOLDSYSTEMS user ID.')
 parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'The BOLDSYSTEMS password.')
-parser$add_argument('-R', '--reference', action = 'store_false', help = 'Perform taxonomic classification with DADA2 using own reference databases.')
+parser$add_argument('-R', '--reference', action = 'store_true', help = 'Perform taxonomic classification with DADA2 using own reference databases.')
 parser$add_argument('-M', '--minBoot', type = 'numeric', default = 80, help = 'The minimal bootstrap value for taxonomic classification with DADA2. Default is 80.')
 
 # Command line arguments for taxonomic table fusing
-parser$add_argument('-F', '--fuse', action = 'store_false', help = 'Fuse the information of all taxonomic tables.')
+parser$add_argument('-F', '--fuse', action = 'store_true', help = 'Fuse the information of all taxonomic tables.')
 parser$add_argument('-f', '--fuseLevels', type = 'character', default = 'Phylum,Class,Order,Family,Genus,Species', help = 'The taxonomic levels used for fusing all taxonomic tables. Default levels are Phylum,Class,Order,Family,Genus,Species.')
 
 # Parse the arguments
