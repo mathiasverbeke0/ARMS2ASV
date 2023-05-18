@@ -11,9 +11,9 @@ cat(' ____  _____ _____ _____ ____ ___ ____  _____
 |_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n\n')
 
 
-############################
-## DOWNLOADING R PACKAGES ##
-############################
+#####################################
+## DOWNLOADING AND LOAD R PACKAGES ##
+#####################################
 
 cat('\n _ _ _     
 | (_) |__  
@@ -25,6 +25,7 @@ cat('\nInstalling and loading all packages\n')
 
 pkg <- installed.packages()[,'Package']
 
+# Specify all packages
 ToInstall <- c(
   'xlsx',
   'dada2',
@@ -33,40 +34,25 @@ ToInstall <- c(
   'Biostrings',
   'ShortRead',
   'vegan',
-  'Biostrings',
   'readxl',
   'stringr',
   'argparse',
   'purrr',
-  'readxl',
   'dplyr',
   'gtools'
 )
 
-for (item in ToInstall){
-  if (!item %in% pkg) {
+for(item in ToInstall){
+  
+  # If not installed, install the package
+  if(!item %in% pkg) {
     install.packages(item)
   }
+  
+  # Load the package (silently)
+  suppressPackageStartupMessages(library(item, character.only = T))
 }
 
-
-###########################################
-## LOADING PACKAGES AND SOURCING SCRIPTS ##
-###########################################
-
-suppressPackageStartupMessages(library(xlsx))
-suppressPackageStartupMessages(library(dada2))
-suppressPackageStartupMessages(library(ggplot2))
-suppressPackageStartupMessages(library(stats))
-suppressPackageStartupMessages(library(Biostrings))
-suppressPackageStartupMessages(library(ShortRead))
-suppressPackageStartupMessages(library(vegan))
-suppressPackageStartupMessages(library(stringr))
-suppressPackageStartupMessages(library(argparse))
-suppressPackageStartupMessages(library(purrr))
-suppressPackageStartupMessages(library(readxl))
-suppressPackageStartupMessages(library(dplyr))
-suppressPackageStartupMessages(library(gtools))
 
 ####################################
 ## Parsing command line arguments ##
@@ -164,13 +150,8 @@ if(boldigger == T & (is.null(password) | is.null(user))){
   stop('If --BOLDigger is specified, --user and --password also need to be specified.')
 }
 
-# Fusing taxonomic tables requires all reference databases to have the levels specified with --fuseLevels
-if(fuse == TRUE){
-  source(file.path(dirname(pipeline_path), 'dependencies/taxLevelCheck.R'))
-}
-
 # Fusing taxonomic tables cannot be done if only the --BOLDigger option is selected
-if(boldigger == T & fuse == T & reference ==F){
+if(boldigger == T & fuse == T & reference == F){
   cat('Warning: you cannot merge taxonomic tables if only the BOLDSYSTEMS table is generated.')
   
   # Change fuse to false
@@ -185,6 +166,11 @@ if(reference == T){
   # Get the configuration file
   config_file <- file.path(dirname(pipeline_path), '../../data/reference/config.txt')
   
+  # Check if the configuration file exists
+  if(!file.exists(config_file)){
+    stop(paste("The file", config_file,  "does not exist, which is necessary for the process of taxonomic classification using locally stored reference databases. It appears that the file may have been (re)moved or is missing from its expected location."))
+  }
+  
   # Remove config file from ref_files
   ref_files <- ref_files[!basename(ref_files) == 'config.txt']
   
@@ -192,6 +178,12 @@ if(reference == T){
     stop('The reference database folder is empty. Please make sure there are reference databases available in the directory.')
   }
 }
+
+# Fusing taxonomic tables requires all reference databases to have the levels specified with --fuseLevels
+if(fuse == TRUE){
+  source(file.path(dirname(pipeline_path), 'dependencies/taxLevelCheck.R'))
+}
+
 
 #############################
 ## DOWNLOAD ENA ACCESSIONS ##
