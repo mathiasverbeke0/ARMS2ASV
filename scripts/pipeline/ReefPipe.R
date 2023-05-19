@@ -87,7 +87,7 @@ parser$add_argument('-f', '--fuseLevels', type = 'character', default = 'Phylum,
 args <- parser$parse_args()
 
 # Access the argument values
-mainpath <- args$base_dir
+mainpath <- normalizePath(args$base_dir)
 download <- args$download
 run_mode <- args$run_mode
 trim_primers <- args$trim_primers
@@ -633,6 +633,7 @@ for(iter in 1:length(paths)){
   # If there is only one row in the sequence table, add the sample name manually
   if(dim(seqtab)[1] == 1){
     rownames(seqtab) <- sample.names
+    cat('test')
   }
   
   #####################
