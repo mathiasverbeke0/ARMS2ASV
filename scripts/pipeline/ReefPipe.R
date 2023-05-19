@@ -630,6 +630,11 @@ for(iter in 1:length(paths)){
     next
   }
   
+  # If there is only one row in the sequence table, add the sample name manually
+  if(dim(seqtab)[1] == 1){
+    rownames(seqtab) <- sample.names
+  }
+  
   #####################
   ## REMOVE CHIMERAS ##
   #####################
