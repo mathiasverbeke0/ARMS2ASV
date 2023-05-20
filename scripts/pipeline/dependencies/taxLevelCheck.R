@@ -6,7 +6,7 @@
 individual_levels <- gsub(' ', '', str_to_title(strsplit(fuseLevels, ",")[[1]]))
 
 # Get the configuration file
-config_file <- normalizePath(file.path(dirname(pipeline_path), '../../data/reference/config.txt'))
+config_file <- file.path(dirname(pipeline_path), '../../data/reference/config.txt')
 
 # Read in the csv file
 config_df <- read.csv(config_file)
@@ -14,7 +14,7 @@ config_df <- read.csv(config_file)
 for(i in 1:nrow(config_df)){
   
   # Extract the taxonomic levels per reference database from config_df and convert them to 1 string
-  ref_levels <- gsub(' ', '', str_to_title(strsplit(config_df[i, "TaxonomicLevel"], ";")[[1]]))
+  ref_levels <- gsub('[\t ]', '', str_to_title(strsplit(config_df[i, "TaxonomicLevel"], ";")[[1]]))
   
   for(individual_level in individual_levels){
     if(!individual_level %in% ref_levels){
