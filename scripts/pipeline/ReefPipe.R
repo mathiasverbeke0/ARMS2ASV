@@ -27,7 +27,7 @@ pkg <- installed.packages()[,'Package']
 
 # Specify all packages
 ToInstall <- c(
-  'BiocManager'
+  'BiocManager',
   'xlsx',
   'dada2',
   'ggplot2',
