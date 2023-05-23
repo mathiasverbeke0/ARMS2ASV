@@ -27,6 +27,7 @@ pkg <- installed.packages()[,'Package']
 
 # Specify all packages
 ToInstall <- c(
+  'BiocManager'
   'xlsx',
   'dada2',
   'ggplot2',
@@ -46,7 +47,14 @@ for(item in ToInstall){
   
   # If not installed, install the package
   if(!item %in% pkg) {
-    install.packages(item)
+    
+    if(item %in% c('dada2', 'Biostrings', 'ShortRead')){
+      BiocManager::instal(item)
+    }
+    
+    else{
+      install.packages(item)
+    }
   }
   
   # Load the package (silently)
