@@ -687,10 +687,14 @@ for(iter in 1:length(paths)){
   # Combine ASV sequences and headers
   asv_fasta <- c(rbind(asv_headers, asv_seqs))
   
-  # write ASV sequences and headers to a text and rds file
+  # Write ASV sequences and headers to a text (i.e. multifasta) and rds file
   write(asv_fasta, file.path(path.seq, 'COI_ASVS.fasta'))
   saveRDS(seqtab.nochim, file.path(path.seq, 'seqtab.rds'))
   
+  if(boldigger){
+    # Write second ASV multifasta file (-> For compatibility with Windows)
+    write(asv_fasta, file, file.path(path.seq, 'COI_ASVS2.fasta'))
+  }
   
   #####################
   ## ASV RAREFACTION ##
@@ -737,10 +741,11 @@ if((reference == T | boldigger == T) & length(paths) > 0){
  \\__\\__,_/_/\\_\\\n\n')
   
   # Get paths to ASV multifasta files
-  paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')
+  paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')    # To avoid potential errors in Windows, 
+  paths.ASV2 <- file.path(paths, '06.Seq_Table/COI_ASVS2.fasta')  # 2 identical multifasta files are used.
   
-  # Get paths to transformed ASV multifasta files (BOLDigger renames the used multifasta files to COI_ASVS_done.fasta)
-    boldigger.paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS_done.fasta')
+  # Get paths to transformed ASV multifasta files (BOLDigger renames the used multifasta files to COI_ASVS2_done.fasta)
+  boldigger.paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS2_done.fasta')
   
   # Construct paths to directories where taxonomy files will be stored
   paths.taxon <- file.path(paths, '07.Taxonomy')
@@ -799,7 +804,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       
       # Locations of the ASV multifasta file and taxonomy directory
       path.taxon <- paths.taxon[iter]
-      path.ASV <- paths.ASV[iter]
+      path.ASV2 <- paths.ASV2[iter]
       boldigger.path.ASV <- boldigger.paths.ASV[iter]
       
       # Execute the BOLDigger command line tool: find top 20 hits
@@ -826,7 +831,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       system2(command = 'boldigger-cline', args = c('first_hit', excel_file))
       
       # Read in the second sheet of the BOLDigger output excel file
-      bold_taxonomy <- read.xlsx(xlsxFile = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheet = 'First hit')
+      bold_taxonomy <- read.xlsx(xlsxFile = excel_file, sheet = 'First hit')
       
       # Create directory to store only the first hits
       if(!dir.exists(file.path(path.taxon, 'BOLDSYSTEMS'))){
