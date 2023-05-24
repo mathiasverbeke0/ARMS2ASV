@@ -649,7 +649,6 @@ for(iter in 1:length(paths)){
   # If there is only one row in the sequence table, add the sample name manually
   if(dim(seqtab)[1] == 1){
     rownames(seqtab) <- sample.names
-    cat('test')
   }
   
   #####################
@@ -660,9 +659,10 @@ for(iter in 1:length(paths)){
   step <- step + 1
   cat(paste0(label, step, '] Removing chimeras\n'))
   
+  
   # Remove chimeras
   seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
-  
+
   # Remove singletons
   if (singleton == T & dim(seqtab.nochim)[1] > 1){
     
@@ -673,6 +673,7 @@ for(iter in 1:length(paths)){
     mode(seqtab.nochim) = 'numeric'
     seqtab.nochim <- seqtab.nochim[,colSums(seqtab.nochim) > 1]
   }
+  
   
   # Get ASV sequences
   asv_seqs <- colnames(seqtab.nochim)
@@ -693,7 +694,7 @@ for(iter in 1:length(paths)){
   
   if(boldigger){
     # Write second ASV multifasta file (-> For compatibility with Windows)
-    write(asv_fasta, file, file.path(path.seq, 'COI_ASVS2.fasta'))
+    write(asv_fasta, file.path(path.seq, 'COI_ASVS2.fasta'))
   }
   
   #####################
@@ -811,7 +812,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       system2(command = 'boldigger-cline', args = c('ie_coi', 
                                                     user, 
                                                     password, 
-                                                    path.ASV, 
+                                                    path.ASV2, 
                                                     path.taxon))
       
       # Get the file names in the Taxonomy directory
@@ -845,7 +846,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       # Remove the original BOLDigger output files
       for(non_dir in non_dirs){unlink(x = non_dir)}
       
-      file.rename(from = boldigger.path.ASV, to = path.ASV)
+      unlink(x = boldigger.path.ASV)
     }
   }
   
