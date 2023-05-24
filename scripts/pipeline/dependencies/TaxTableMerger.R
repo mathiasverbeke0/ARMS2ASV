@@ -40,7 +40,7 @@ if (boldigger ==T){
   bold_taxa$source <- 'BOLDSYSTEMS'
   
   # Replace all NA values in similarity column with 0
-  bold_taxa[is.na(bold_taxa$Similarity), 8] <- as.character(0)
+  bold_taxa[is.na(bold_taxa$Similarity), 8] <- 0
   
   # Nullify all taxonomies where similarity is less than 97% (= species level)
   bold_taxa[as.numeric(bold_taxa$Similarity) < 97, 2:9] <- NA
@@ -215,7 +215,7 @@ if(reference == T){
   
   if(nrow(ambiguous) != 0){
     # Storing ambiguous taxonomy table in excel file if it is not empty
-    write.xlsx(ambiguous, file = file.path(path.taxon, 'Ambiguous.xlsx'))
+    write.xlsx(as.data.frame(ambiguous), file = file.path(path.taxon, 'Ambiguous.xlsx'), asTable = T, sheetName = 'Sheet1')
   } else{
     cat('None\n', 
         file = file.path(path.taxon, 'TaxLog.txt'))
@@ -237,7 +237,8 @@ if(boldigger == T & reference == T){
   for(row in 1:nrow(bold_taxa)){
     
     # ASV ID
-    ASV_ID <- sub("^>", "", bold_taxa$ID[row])
+    ASV_ID <- sub("^(>|&gt;)", "", bold_taxa$ID[row])
+    print(ASV_ID)
     
     # Check if the ASV ID is ambiguous in reference taxonomic tables
     if(ASV_ID %in% unique(ambiguous$ID)){
@@ -385,7 +386,7 @@ if(boldigger == T & reference == T){
   }
   
   # Storing supplemented BOLDSYSTEMS taxonomic table in excel file
-  write.xlsx(bold_taxa, file = file.path(path.taxon, 'Consensus.xlsx'))
+  write.xlsx(as.data.frame(bold_taxa), file = file.path(path.taxon, 'Consensus.xlsx'), asTable = T, sheetName = 'Sheet1')
 } else if(boldigger == F & reference == T){
   
   # Manipulating merged taxonomic table so that it resembles the supplemented BOLDSYSTEMS taxonomic table
@@ -417,5 +418,5 @@ if(boldigger == T & reference == T){
   merged <- merged[match(mixedsort(merged$ID), merged$ID),]
   
   # Storing merged taxonomic table in excel file
-  write.xlsx(merged, file = file.path(path.taxon, 'Consensus.xlsx'))
+  write.xlsx(x = as.data.frame(merged), file = file.path(path.taxon, 'Consensus.xlsx'), asTable = T, sheetName = 'Sheet1')
 }

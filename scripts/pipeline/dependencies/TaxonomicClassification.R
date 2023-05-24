@@ -38,5 +38,6 @@ for (ref_file in ref_files) {
   tax_table <- cbind(ID = IDs, tax_table)
   
   # Print the taxonomy table to an Excel file
-  write.xlsx(tax_table, file = file.path(path.taxon, ref_name, paste0(ref_name,'_tax_classification', '.xlsx')))
+  library(openxlsx)
+  write.xlsx(x = as.data.frame(tax_table), file = file.path(path.taxon, ref_name, paste0(ref_name,'_tax_classification', '.xlsx')), asTable = T, sheetName = 'Sheet1')
 }

@@ -28,7 +28,7 @@ pkg <- installed.packages()[,'Package']
 # Specify all packages
 ToInstall <- c(
   'BiocManager',
-  'xlsx',
+  'openxlsx',
   'dada2',
   'ggplot2',
   'stats', 
@@ -49,10 +49,18 @@ for(item in ToInstall){
   if(!item %in% pkg) {
     
     if(item %in% c('dada2', 'Biostrings', 'ShortRead')){
+      # Set the Bioconductor image
+      options("BioC_mirror" = "https://bioconductor.org")
+      
+      # Install package
       BiocManager::instal(item)
     }
     
     else{
+      # Set the CRAN mirror
+      options(repos = "https://cran.rstudio.com/")
+      
+      # Install package
       install.packages(item)
     }
   }
@@ -818,7 +826,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       system2(command = 'boldigger-cline', args = c('first_hit', excel_file))
       
       # Read in the second sheet of the BOLDigger output excel file
-      bold_taxonomy <- read.xlsx(file = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheetIndex = 'First hit')
+      bold_taxonomy <- read.xlsx(xlsxFile = file.path(path.taxon, 'BOLDResults_COI_ASVS_part_1.xlsx'), sheet = 'First hit')
       
       # Create directory to store only the first hits
       if(!dir.exists(file.path(path.taxon, 'BOLDSYSTEMS'))){
@@ -827,7 +835,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       }
       
       # Write the contents of the second sheet to a separate excel file
-      write.xlsx(x = bold_taxonomy, file = file.path(path.taxon, 'BOLDSYSTEMS', 'BOLD_first_hit.xlsx'))
+      write.xlsx(x = as.data.frame(bold_taxonomy), file = file.path(path.taxon, 'BOLDSYSTEMS', 'BOLD_first_hit.xlsx'), asTable = T, sheetName = 'Sheet1')
       
       # Remove the original BOLDigger output files
       for(non_dir in non_dirs){unlink(x = non_dir)}
