@@ -103,7 +103,7 @@ parser$add_argument('-f', '--fuseLevels', type = 'character', default = 'Phylum,
 args <- parser$parse_args()
 
 # Access the argument values
-mainpath <- normalizePath(args$base_dir)
+mainpath <- normalizePath(args$base_dir, winslash = '/')
 download <- args$download
 run_mode <- args$run_mode
 trim_primers <- args$trim_primers
@@ -134,7 +134,7 @@ for (arg in args) {
 }
 
 if (!is.null(pipeline_path)) {
-  pipeline_path <- normalizePath(pipeline_path)
+  pipeline_path <- normalizePath(pipeline_path, winslash = '/')
   
 } else {
   stop("Pipeline path not found.")
@@ -228,7 +228,7 @@ if(!is.null(download)){
 if (run_mode == 'single' & is.null(download)){
   paths = mainpath
 } else if(run_mode == 'multi'){
-  paths = normalizePath(list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE))
+  paths = normalizePath(list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE), winslash = '/')
 }
 
 
@@ -344,6 +344,7 @@ for(iter in 1:length(paths)){
     path.cut <- file.path(paths[iter], '01.Prefiltered')
     
     if(!dir.exists(path.cut)){
+      cat(paste('Creating output directory:', path.cut, '\n'))
       dir.create(path.cut)
     }
     
@@ -383,6 +384,7 @@ for(iter in 1:length(paths)){
     
     # Make a new directory to store prefiltered sequences
     if(!dir.exists(path.cut)){
+      cat(paste('Creating output directory:', path.cut, '\n'))
       dir.create(path.cut)
     }
     
