@@ -168,7 +168,7 @@ if(boldigger == T & (is.null(password) | is.null(user))){
 
 # Fusing taxonomic tables cannot be done if only the --BOLDigger option is selected
 if(boldigger == T & fuse == T & reference == F){
-  cat('Warning: you cannot merge taxonomic tables if only the BOLDSYSTEMS table is generated.')
+  warning('You cannot merge taxonomic tables if only the BOLDSYSTEMS table is generated.')
   
   # Change fuse to false
   fuse = F
@@ -228,7 +228,7 @@ if(!is.null(download)){
 if (run_mode == 'single' & is.null(download)){
   paths = mainpath
 } else if(run_mode == 'multi'){
-  paths = list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE)
+  paths = normalizePath(list.dirs(path = mainpath, full.names = TRUE, recursive = FALSE))
 }
 
 
@@ -381,6 +381,11 @@ for(iter in 1:length(paths)){
     # Make directory path to store prefiltered sequences
     path.cut <- file.path(paths[iter], '01.Prefiltered')
     
+    # Make a new directory to store prefiltered sequences
+    if(!dir.exists(path.cut)){
+      dir.create(path.cut)
+    }
+    
     # Make files to store the prefiltered sequences
     FwdRead.cut <- file.path(path.cut, basename(FwdRead))
     RevRead.cut <- file.path(path.cut, basename(RevRead))
@@ -408,40 +413,41 @@ for(iter in 1:length(paths)){
   # Make PDF with read quality profiles
   suppressWarnings({
     
-    pdf(file = file.path(path.cut, 'QualityProfilesPreFiltered.pdf'))
-    
-    # Forward reads
-    if(length(FwdRead.cut) <= 10){
+    pdf(file = file.path(path.cut, 'QualityProfile.pdf'))
       
-      plotQualityProfile(FwdRead.cut) +
-        geom_hline(yintercept = 30) +
-        scale_color_manual(guide = "none")
+      # Forward reads
+      if(length(FwdRead.cut) <= 10){
+        
+        show(plotQualityProfile(FwdRead.cut) +
+          geom_hline(yintercept = 30) +
+          scale_color_manual(guide = "none"))
+        
+      } else {
+        
+        show(plotQualityProfile(FwdRead.cut[1:10]) +
+          geom_hline(yintercept = 30) +
+          scale_color_manual(guide = "none"))
+        
+      }
       
-    } else {
-      
-      plotQualityProfile(FwdRead.cut[1:10]) +
-        geom_hline(yintercept = 30) +
-        scale_color_manual(guide = "none")
-      
-    }
-    
-    # Reverse reads
-    if(length(RevRead.cut) <= 10){
-      
-      plotQualityProfile(RevRead.cut) +
-        geom_hline(yintercept = 30) +
-        scale_color_manual(guide = "none")
-      
-    } else {
-      
-      plotQualityProfile(RevRead.cut[1:10]) +
-        geom_hline(yintercept = 30) +
-        scale_color_manual(guide = "none")
-      
-    }
+      # Reverse reads
+      if(length(RevRead.cut) <= 10){
+        
+        show(plotQualityProfile(RevRead.cut) +
+          geom_hline(yintercept = 30) +
+          scale_color_manual(guide = "none"))
+        
+      } else {
+        
+        show(plotQualityProfile(RevRead.cut[1:10]) +
+          geom_hline(yintercept = 30) +
+          scale_color_manual(guide = "none"))
+        
+      }
     
     dev.off()
   })
+  
   
   #####################
   ## FILTER AND TRIM ##
@@ -490,33 +496,35 @@ for(iter in 1:length(paths)){
   suppressWarnings({
     pdf(file = file.path(path.filt, 'QualityProfilesFilteredTrimmed.pdf'))
     
-    # Forward reads
-    if(length(FwdRead.filt) <= 10){
+      # Forward reads
+      if(length(FwdRead.filt) <= 10){
+        
+        show(plotQualityProfile(FwdRead.filt) +
+          geom_hline(yintercept = 30) +
+            scale_color_manual(guide = "none"))
+        
+      } else {
+        
+        show(plotQualityProfile(FwdRead.filt[1:10]) +
+          geom_hline(yintercept = 30) +
+          scale_color_manual(guide = "none"))
+        
+      }
       
-      plotQualityProfile(FwdRead.filt) +
-        geom_hline(yintercept = 30)
-      
-    } else {
-      
-      plotQualityProfile(FwdRead.filt[1:10]) +
-        geom_hline(yintercept = 30)
-      
-    }
-    
-    # Reverse reads
-    if(length(RevRead.filt) <= 10){
-      
-      plotQualityProfile(RevRead.filt) +
-        geom_hline(yintercept = 30) +
-        scale_color_manual(guide = "none")
-      
-    } else {
-      
-      plotQualityProfile(RevRead.filt[1:10]) +
-        geom_hline(yintercept = 30) +
-        scale_color_manual(guide = "none")
-      
-    }
+      # Reverse reads
+      if(length(RevRead.filt) <= 10){
+        
+        show(plotQualityProfile(RevRead.filt) +
+          geom_hline(yintercept = 30) +
+          scale_color_manual(guide = "none"))
+        
+      } else {
+        
+        show(plotQualityProfile(RevRead.filt[1:10]) +
+          geom_hline(yintercept = 30) +
+          scale_color_manual(guide = "none"))
+        
+      }
     
     dev.off()
   })
@@ -546,9 +554,18 @@ for(iter in 1:length(paths)){
   
   # Construct and store the error plots
   pdf(file = file.path(path.error, paste0(sample.names[1], '.pdf')))
-  plotErrors(errF, nominalQ=TRUE)
-  plotErrors(errR, nominalQ=TRUE)
-  dev.off()
+    
+    # Error plots for forward reads
+    show(plotErrors(errF, nominalQ=TRUE) +
+           ggtitle('Forward') + 
+           theme(plot.title = element_text(hjust = 0.5)))
+    
+    # Error plots for reverse reads
+    show(plotErrors(errR, nominalQ=TRUE)+
+           ggtitle('Reverse') + 
+           theme(plot.title = element_text(hjust = 0.5)))
+  
+    dev.off()
   
   
   ######################
@@ -631,11 +648,6 @@ for(iter in 1:length(paths)){
     cat(paste('\nASVS could not be generated for', basename(paths[iter]), 
               '\nExcluding', paths[iter], 'from paths to take into consideration.\n'))
     
-    # Write failed ASV generation to output file
-    if(!file.exists(file.path(mainpath, 'log.txt'))){
-      file.create(file.path(mainpath, 'log.txt'))
-    }
-    
     # Find index of path to remove
     index_to_remove <- grep(pattern = paths[iter], paths)
     
@@ -674,6 +686,21 @@ for(iter in 1:length(paths)){
     seqtab.nochim <- seqtab.nochim[,colSums(seqtab.nochim) > 1]
   }
   
+  # If there are no sequences in the sequence table, continue
+  if(dim(seqtab.nochim)[2] == 0){
+    
+    cat(paste('\nASVS could not be generated for', basename(paths[iter]), 
+              '\nExcluding', paths[iter], 'from paths to take into consideration.\n'))
+    
+    # Find index of path to remove
+    index_to_remove <- grep(pattern = paths[iter], paths)
+    
+    # Remove path from paths variable
+    paths <- paths[-index_to_remove]
+    
+    # Continue
+    next
+  }
   
   # Get ASV sequences
   asv_seqs <- colnames(seqtab.nochim)
@@ -833,6 +860,9 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       
       # Read in the second sheet of the BOLDigger output excel file
       bold_taxonomy <- read.xlsx(xlsxFile = excel_file, sheet = 'First hit')
+      
+      # Change the > symbol from the ASV ID (Windows compatibility)
+      bold_taxonomy$ID <- gsub(pattern = '^&gt;', replacement = '>', bold_taxonomy$ID)
       
       # Create directory to store only the first hits
       if(!dir.exists(file.path(path.taxon, 'BOLDSYSTEMS'))){
