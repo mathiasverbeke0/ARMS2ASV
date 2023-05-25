@@ -16,7 +16,7 @@ ToInstall <- c(
   'argparse',
   'Biostrings',
   'bioseq',
-  'xlsx',
+  'openxlsx',
   'dplyr',
   'progress',
   'stringr',
@@ -26,6 +26,10 @@ ToInstall <- c(
 
 for (item in ToInstall){
   if (!item %in% pkg) {
+    # Set the CRAN mirror
+    options(repos = "https://cran.rstudio.com/")
+    
+    # Install package
     install.packages(item)
   }
   
@@ -42,9 +46,10 @@ parser <- ArgumentParser(description = 'Reefpipe2 command line arguments')
 # Mandatory command line arguments
 parser$add_argument('-b', '--base_dir', metavar = 'BASEDIR', type = 'character', required = TRUE, help = 'The base directory path for the analysis.')
 parser$add_argument('-t', '--taxtable', type = 'character', required = TRUE, help = 'The general name of the taxnomic tables you want to use.')
-parser$add_argument('-T', '--taxlevels', type = 'character', default = 'Phylum,Class,Order,Family,Genus,Species', help = 'The taxonomic levels extracted from the taxonomic tables. Default levels are Phylum,Class,Order,Family,Genus,Species.')
+parser$add_argument('-e', '--environment', type = 'character', choices = c('linux', 'windows', 'mac'), required = TRUE, help = 'The operating system you are currently using.')
 
 # Optional command line arguments
+parser$add_argument('-T', '--taxlevels', type = 'character', default = 'Phylum,Class,Order,Family,Genus,Species', help = 'The taxonomic levels extracted from the taxonomic tables. Default levels are Phylum,Class,Order,Family,Genus,Species.')
 parser$add_argument('-s', '--similarity', type = 'numeric', required = FALSE, default = 97, help = 'The percentage similarity to cluster sequences.')
 
 # Parse the arguments
@@ -55,7 +60,7 @@ mainpath <- normalizePath(args$base_dir)
 similarity <- args$similarity
 taxtable <- args$taxtable
 taxlevels <- gsub(' ', '', str_to_title(strsplit(args$taxlevels, ",")[[1]]))
-
+envir <- args$environment
 
 ####################################
 ## ABSOLUTE PATH OF MAIN WORKFLOW ##
@@ -78,6 +83,18 @@ if (!is.null(pipeline_path)) {
 }
 
 
+########################################
+## COMMAND LINE CONDITIONS AND CHECKS ##
+########################################
+
+# Check if the taxonomic tables exist
+taxtable_paths <- list.files(mainpath, pattern = taxtable, full.names = TRUE, recursive = TRUE)
+
+if(length(taxtable_paths) == 0){
+  stop(paste('No taxonomic tables called', taxtable, 'could be found.'))
+} 
+
+
 ##################################
 ## CONSTRUCT MAIN OUTPUT FOLDER ##
 ##################################
@@ -98,7 +115,13 @@ cat("\n _ __ ___  ___  __ _
 | | | | | \\__ \\ (_| |
 |_| |_| |_|___/\\__,_|\n\n")
 
-result <- system2(command = 'python', args = c(file.path(dirname(pipeline_path), 'dependencies/MSA.py'), '-b', mainpath, '-o', path.unified))
+# Define the clustalo executable path
+
+if(envir == 'linux'){exec <- 'clustalo'
+} else if(envir == 'windows'){exec <- file.path(dirname(pipeline_path), 'dependencies/clustal-omega-1.2.2-win64/clustalo.exe')
+} else if(envir == 'mac'){exec <- file.path(dirname(pipeline_path), 'dependencies/clustal-omega-1.2.3-macosx')}
+
+result <- system2(command = 'python', args = c(file.path(dirname(pipeline_path), 'dependencies/MSA.py'), '-b', mainpath, '-o', path.unified, '-e', envir, '-c', exec))
 
 # If the exit status of MSA.py is not 0, throw halt the script
 if(result != 0){
@@ -157,23 +180,20 @@ ASVID_new <- paste0("ASV", seq(1, length(as.character(dna_seq))))
 information <- data.frame(ASVID = ASVID_new, Sequence = gsub('-', '', as.character(dna_seq)), Cluster = clusters)
 rownames(information) <- names(dna_seq)
 
-# Getting separate taxonomic classification tables
-taxtable_paths <- list.files(mainpath, pattern = taxtable, full.names = TRUE, recursive = TRUE)
-
 # Remove the > character from the ASV ID
-rownames(information) <- gsub('>', '', rownames(information))
+rownames(information) <- gsub('^(&gt;|>)', '', rownames(information))
 
 # Constructing empty data frame
 all_taxonomy <- data.frame()
 
 # Adding all taxonomic classification tables together
 for(taxtable_path in taxtable_paths){
-  temporary_dataframe <- read.xlsx(file = taxtable_path, sheetIndex = 1)
+  temporary_dataframe <- read.xlsx(xlsxFile = taxtable_path, sheet = 1)
   all_taxonomy <- rbind(all_taxonomy, temporary_dataframe)
 }
 
 # Remove the > character from the ASV ID
-all_taxonomy$ID <- gsub('>', '', all_taxonomy$ID)
+all_taxonomy$ID <- gsub('^(>|&gt;)', '', all_taxonomy$ID)
 
 # Get the column index of the ID column in all_taxonomy
 all_IDIndex <- which(colnames(all_taxonomy) %in% c('ID', 'NA.'))
@@ -300,7 +320,7 @@ joined[, sample_names] <- apply(joined[, sample_names], 1, function(x){
 })
 
 # Write the taxlevel grouped data frame to an Excel file
-write.xlsx(x = joined, file = file.path(path.unified, 'GroupedTaxa.xlsx'), row.names = F)
+write.xlsx(x = joined, file = file.path(path.unified, 'GroupedTaxa.xlsx'), rowNames = F)
 
 
 ##########################################
@@ -333,4 +353,4 @@ joined[joined == '#N/A'] <- NA
 joined <- arrange(joined, Sequence)
 
 # Write the sequence grouped data frame to an Excel file
-write.xlsx(x = joined, file = file.path(path.unified, 'GroupedSequences.xlsx'), row.names = F)
+write.xlsx(x = joined, file = file.path(path.unified, 'GroupedSequences.xlsx'), rowNames = F)

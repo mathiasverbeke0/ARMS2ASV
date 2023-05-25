@@ -18,6 +18,8 @@ parser = argparse.ArgumentParser(description='Merging and subsequent MSA of mult
 # Add arguments
 parser.add_argument('-b', '--base_dir', required = True, help = 'The base directory path for the analysis.')
 parser.add_argument('-o', '--output_dir', required = True, help = 'The output directory path.')
+parser.add_argument('-e', '--environment', required = True, choices = ['linux', 'windows'], help = 'The operating system you are currently using.')
+parser.add_argument('-c', '--clustal_omega', required = False, help = 'The absolute path to the clustalo executable')
 
 # Parse the arguments
 args = parser.parse_args()
@@ -74,9 +76,14 @@ if len(matching_files) > 0:
 
     print('\nPerforming MSA')
 
-    # Run Clustal Omega multiple sequence alignment command
-    clustalomega_cline = ClustalOmegaCommandline(infile=input_file, outfile=output_file, verbose=True, auto=True, force = True)
-    stdout, stderr = clustalomega_cline()
+    if args.environment == 'linux' :
+        # Run Clustal Omega multiple sequence alignment command
+        clustalomega_cline = ClustalOmegaCommandline(infile=input_file, outfile=output_file, verbose=True, auto=True, force = True)
+        stdout, stderr = clustalomega_cline()
+
+    elif args.environment == 'windows':
+        clustalomega_cline = ClustalOmegaCommandline(args.clustal_omega, infile=input_file, outfile=output_file, verbose=True, auto=True, force = True)
+        stdout, stderr = clustalomega_cline()
 
     print(f"Aligned sequences written to {output_file}.")
 
