@@ -277,7 +277,7 @@ for(row in 1:nrow(information)){
 sample_names <- sort(sample_names)
 
 # Put the sample columns in a separate data frame
-sample_columns <- information[, sample_names]
+sample_columns <- information[, sample_names, drop = FALSE]
 
 # Remove the sample columns from the information data frame
 information <- information[,!colnames(information) %in% sample_names]
@@ -286,8 +286,9 @@ information <- information[,!colnames(information) %in% sample_names]
 information <- data.frame(information, sample_columns)
 
 # Writing this to an Excel file
-write.xlsx(x = information, file = file.path(path.unified, 'Union.xlsx'))
+write.xlsx(x = information, file = file.path(path.unified, 'Union.xlsx'), rowNames = TRUE)
 
+union <- information
 
 ######################################
 ## GROUP ALL ASVs BASED ON TAXONOMY ##
@@ -313,12 +314,6 @@ joined[joined == '#N/A'] <- NA
 # Sort the rows by taxonomic level
 joined <- arrange(joined, !!!syms(taxlevels))
 
-# Add up the numbers in the sample columns
-joined[, sample_names] <- apply(joined[, sample_names], 1, function(x){
-  as.character(x)
-  
-})
-
 # Write the taxlevel grouped data frame to an Excel file
 write.xlsx(x = joined, file = file.path(path.unified, 'GroupedTaxa.xlsx'), rowNames = F)
 
@@ -343,8 +338,20 @@ information <- information[, !(colnames(information) %in% taxlevels)]
 # Replace NA values with a placeholder value (e.g., "NA")
 information[is.na(information)]<- "#N/A"
 
+# Specify the formula for grouping
+formula <- as.formula(paste(". ~", paste('Sequence', '+', paste(sample_names, collapse = " + "))))
+
 # Join rows based on identical ASV sequence
-joined <- aggregate(. ~ Sequence, data = information, FUN = paste, collapse = ', ')
+joined <- aggregate(formula, data = information, FUN = paste, collapse = ', ')
+
+# Put the sample columns in a separate data frame
+sample_columns <- joined[, sample_names, drop = FALSE]
+
+# Remove the sample columns from the information data frame
+joined <- joined[,!colnames(joined) %in% sample_names]
+
+# Add the sample columns (sorted) to the information data frame
+joined <- data.frame(joined, sample_columns)
 
 # Replace 'NA' values back to NA values
 joined[joined == '#N/A'] <- NA
@@ -354,3 +361,11 @@ joined <- arrange(joined, Sequence)
 
 # Write the sequence grouped data frame to an Excel file
 write.xlsx(x = joined, file = file.path(path.unified, 'GroupedSequences.xlsx'), rowNames = F)
+
+
+#####
+## ##
+#####
+
+system2(command = 'python', args = c(file.path(dirname(pipeline_path), 'dependencies/location.py'), '-o', file.path(path.unified, 'samples.xlsx'), '-e', paste(sample_names, collapse = ',')))
+  
