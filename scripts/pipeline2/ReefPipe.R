@@ -58,41 +58,42 @@ install_and_load_packages('argparse')                                       # In
 parser <- ArgumentParser(description = 'Reefpipe command line arguments')   # Initialize command line argument parser
 
 # General command line arguments
-parser$add_argument('-b', '--base_dir', metavar = 'BASEDIR', type = 'character', required = TRUE, help = 'The base directory path for the analysis.')
+parser$add_argument('-b', '--base_dir', metavar = 'BASEDIR', type = 'character', required = TRUE, help = 'Specify the base directory path for the analysis.')
 parser$add_argument('-d', '--download', metavar = 'FILENAME', required = FALSE, help = 'Download data from ENA for the given accessions listed in FILENAME.')
-parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify whether to run the script for a single or multiple sequencing runs. Select \'single\' for analyzing a single run and \'multi\' for analyzing multiple runs.')
+parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify the run mode: \'single\' for analyzing a single sequencing run or \'multi\' for analyzing multiple runs.')
 parser$add_argument('-g', '--gene', choices = c('COI', 'ITS'), required = TRUE, help = 'Specify the gene to analyze.')
 
 # Primer removal arguments
-parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Trim primers with Cutadapt. By default, primers are not trimmed.')
-parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Forward and reverse primer sequences for trimming.')
+parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Enable primer trimming using cutadapt. By default, primers are not trimmed.')
+parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Specify the forward and reverse primer sequences for trimming with cutadapt.')
+parser$add_argument('-e', '--error_rate', type='numeric', default = 0.1, help = 'Specify the maximum allowed error rate for cutadapt (if 0 <= E < 1) or the absolute number of errors for full-length adapter match (if E is an integer >= 1)')
 
 # Command line arguments for filtering and trimming
-parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='The minimum length threshold for the trimmed reads. Default is 50.')
-parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='The maximum length for trimmed reads. Default is 200 bases for forward reads and 140 bases for reverse reads.')
-parser$add_argument('-n', '--max_ambiguous', type='integer', default=0, help='Maximum number of ambiguous reads allowed. Default is 0.')
-parser$add_argument('-e', '--max_error_rates', nargs=2, type='numeric', metavar=c('Fwd', 'Rev'), default=c(2, 4), help='Maximum error rates for forward and reverse reads. Default is 2 for forward reads and 4 for reverse reads.')
-parser$add_argument('-q', '--min_quality_score', type='integer', default=2, help='Minimum quality score that each base should have. Default is 2.')
-parser$add_argument('-x', '--remove_contaminants', action='store_false', help='Do not remove contaminant reads during filtering and trimming.')
-parser$add_argument('-c', '--compress_output', action='store_false', help='Do not compress the output files.')
+parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='Specify the minimum length threshold for trimmed reads. Default is 50.')
+parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='Specify the maximum length for trimmed reads. Default is 200 bases for forward reads and 140 bases for reverse reads.')
+parser$add_argument('-n', '--max_ambiguous', type='integer', default=0, help='Specify the maximum number of ambiguous reads allowed. Default is 0.')
+parser$add_argument('-E', '--max_error_rates', nargs=2, type='numeric', metavar=c('Fwd', 'Rev'), default=c(2, 4), help='Specify the maximum error rates for forward and reverse reads. Default is 2 for forward reads and 4 for reverse reads.')
+parser$add_argument('-q', '--min_quality_score', type='integer', default=2, help='Specify the minimum quality score that each base should have. Default is 2.')
+parser$add_argument('-x', '--contaminants', action='store_false', help='Disable the removal of contaminant reads during filtering and trimming.')
+parser$add_argument('-c', '--compress', action='store_false', help='Disable the compression of the output files.')
 
 # Command line arguments for merging pairs
-parser$add_argument('-o', '--min_overlap', type='integer', default=10, help='Minimum overlap length required for merging pairs. Default is 10.')
-parser$add_argument('-i', '--max_mismatch', type='integer', default=1, help='Maximum number of mismatches allowed during merging. Default is 1.')
+parser$add_argument('-o', '--min_overlap', type='integer', default=10, help='Specify the minimum overlap length required for merging pairs. Default is 10.')
+parser$add_argument('-i', '--max_mismatch', type='integer', default=1, help='Specify the maximum number of mismatches allowed during merging. Default is 1.')
 
 # ASV fine-tuning
 parser$add_argument('-s', '--singleton', action = 'store_false', help = 'Keep singletons in the sequence table. By default, singletons are removed (except when only one sample is analyzed).')
 
 # Command line arguments for taxonomic classification
 parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using BOLDigger.')
-parser$add_argument('-U', '--user', type = 'character', required = FALSE, help = 'The BOLDSYSTEMS user ID.')
-parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'The BOLDSYSTEMS password.')
-parser$add_argument('-R', '--reference', action = 'store_true', help = 'Perform taxonomic classification with DADA2 using own reference databases.')
-parser$add_argument('-M', '--minBoot', type = 'numeric', default = 80, help = 'The minimal bootstrap value for taxonomic classification with DADA2. Default is 80.')
+parser$add_argument('-U', '--user', type = 'character', required = FALSE, help = 'Specify the BOLDSYSTEMS user ID.')
+parser$add_argument('-P', '--password', type = 'character', required = FALSE, help = 'Specify the BOLDSYSTEMS password.')
+parser$add_argument('-R', '--reference', action = 'store_true', help = 'Perform taxonomic classification with DADA2 using custom reference databases.')
+parser$add_argument('-M', '--minBoot', type = 'numeric', default = 80, help = 'Specify the minimal bootstrap value for taxonomic classification with DADA2. Default is 80.')
 
 # Command line arguments for taxonomic table fusing
-parser$add_argument('-F', '--fuse', action = 'store_true', help = 'Fuse the information of all taxonomic tables.')
-parser$add_argument('-f', '--fuseLevels', type = 'character', default = 'Phylum,Class,Order,Family,Genus,Species', help = 'The taxonomic levels used for fusing all taxonomic tables. Default levels are Phylum,Class,Order,Family,Genus,Species.')
+parser$add_argument('-F', '--fuse', action = 'store_true', help = 'Fuse the information from all taxonomic tables.')
+parser$add_argument('-f', '--fuseLevels', type = 'character', default = 'Phylum,Class,Order,Family,Genus,Species', help = 'Specify the taxonomic levels to be used for fusing all taxonomic tables. Default levels are Phylum,Class,Order,Family,Genus,Species.')
 
 # Parse the arguments
 args <- parser$parse_args()
@@ -104,6 +105,7 @@ run_mode <- args$run_mode
 GOI <- args$gene
 trim_primers <- args$trim_primers
 primers <- args$primers
+cutadapt_error_rate <- args$error_rate
 minlen <- args$minlen
 trunclen <- args$trunclen
 singleton <- args$singleton
@@ -117,8 +119,8 @@ fuseLevels <- args$fuseLevels
 max_ambiguous <- args$max_ambiguous
 max_error_rates <- args$max_error_rates
 min_quality_score <- args$min_quality_score
-remove_contaminants <- args$remove_contaminants
-compress_output <- args$compress_output
+contaminants <- args$contaminants
+compress <- args$compress
 min_overlap <- args$min_overlap
 max_mismatch <- args$max_mismatch
 
@@ -190,7 +192,29 @@ print_header(2)
   }
 
   # Check if connection to BOLDSYSTEMS is possible 
-  # (still needs to be implemented)
+  if(boldigger){
+    
+    cat('[boldigger test] ')
+    dummy_sequence <- c('>ASV1',
+                    'GCTTGCAGGAAACATCGCTCATGCCGGACCATCCGTAGACATAGCAATTTTTAGTTTACACCTTGCAGGGGCCTCCTCAATTCTAGGAGCAGTTAACTTTATTTCAACTGTAATAAATATACGAAGAACAGGGTACCGGTTAGAACGAGTTCCTTTATTTGTTTGAGCCGTTAAAATTACAGCCGTCCTCCTTCTTTTATCTCTACCAGTACTAGCCGGAGCCATTACAATACTATTAACAGACCGAAACCTTAATACCTCTTTTTTTGATCCAGCAGGAGGGGGAGACCCTGTCCTATACCAACACCTTTTC')
+    
+    writeLines(dummy_sequence, con = file.path(mainpath, 'dummy.fas'))
+    
+    # Execute BOLDigger command line tool: find top 20 hits for dummy sequence
+    test <- system2(command = 'boldigger-cline', args = c('ie_coi', 
+                                                  paste0("\"", user, "\""), 
+                                                  paste0("\"", password, "\""), 
+                                                  paste0("\"", file.path(mainpath, 'dummy.fas'), "\""), 
+                                                  paste0("\"", mainpath, "\"")))
+    if(file.exists(file.path(mainpath, 'BOLDResults_dummy_part_1.xlsx'))){
+      unlink(x = c(file.path(mainpath, 'dummy_done.fas'), 
+                 file.path(mainpath, 'BOLDResults_dummy.h5.lz'), 
+                 file.path(mainpath, 'BOLDResults_dummy_part_1.xlsx')))
+    } else{
+      unlink(x = file.path(mainpath, 'dummy.fas'))
+      stop('Could not connect to BOLDSYSTEMS.')
+    }
+  }
 
 
   #########################
@@ -345,9 +369,21 @@ print_header(4)
                 trialpath, 
                 recursive = TRUE)
       
+      # Reconstruct the command
+      command_arguments <- commandArgs(trailingOnly = T)
+      
+      if(boldigger){
+        command_arguments[command_arguments %in% c(user, password)] <- "confidential"
+      }
+      
+      command <- paste('Rscript ReefPipe.R', paste(command_arguments, collapse = ' '))
+      
       # Construct a parameters file
       parameters <- c(
-        'Gene\n----',
+        'Command\n-------',
+        command,
+        
+        '\n\nGene\n----',
         paste0("GOI:", GOI),
         
         '\n\nPrimer Removal\n--------------',
@@ -360,8 +396,8 @@ print_header(4)
         paste0("max_ambiguous:", max_ambiguous),
         paste0("max_error_rates:", max_error_rates),
         paste0("min_quality_score:", min_quality_score),
-        paste0("remove_contaminants:", remove_contaminants),
-        paste0("compress_output:", compress_output),
+        paste0("contaminants:", contaminants),
+        paste0("compress:", compress),
         
         '\n\nMerging Read pairs\n------------------',
         paste0("min_overlap:", min_overlap),
@@ -406,7 +442,7 @@ print_header(4)
 
 print_header(5)
 
-# Construct an empty sequence table to contain all ASVs of all sequencing runs
+# Construct comprehensive sequence table
 main.seqtab <- NULL
 
 for(iter in 1:length(paths)){
@@ -493,12 +529,13 @@ for(iter in 1:length(paths)){
     
     # Run cutadapt
     for(i in seq_along(FwdRead)){
-      system2('cutadapt', args = c(FWD.argument, # Define the forward read
-                                   REV.argument, # Define the reverse read
-                                   '-m 1',   # Only keep reads with a minimal length of 1,
-                                   # '--discard-untrimmed',
-                                   '-o', paste0("\"", FwdRead.cut[i], "\""), '-p', paste0("\"",RevRead.cut[i], "\""), # output files
-                                   paste0("\"", FwdRead[i], "\""), paste0("\"", RevRead[i], "\""))) # input files
+      system2('cutadapt', args = c(FWD.argument,                                                                      # Define the forward read
+                                   REV.argument,                                                                      # Define the reverse read
+                                   '-m 1',                                                                            # Only keep reads with a minimal length of 1,
+                                   '-e', cutadapt_error_rate,
+                                   '--discard-untrimmed',                                                             # Discard reads that were not trimmed
+                                   '-o', paste0("\"", FwdRead.cut[i], "\""), '-p', paste0("\"",RevRead.cut[i], "\""), # Output files
+                                   paste0("\"", FwdRead[i], "\""), paste0("\"", RevRead[i], "\"")))                   # Input files
     }
   }
   
@@ -537,6 +574,7 @@ for(iter in 1:length(paths)){
       stop('Something went wrong! Forward and reverse files do not match anymore!\n')
     }
   }
+  
   
   ###################################
   ## INSPECT READ QUALITY PROFILES ##
@@ -613,8 +651,8 @@ for(iter in 1:length(paths)){
                        maxEE= max_error_rates,                 # Maximum error rates for F and R read
                        truncQ= min_quality_score,              # Minimum quality score that each base should have
                        minLen = minlen,                        # Minimum length of the reads after trimming
-                       rm.phix= remove_contaminants,           # Remove contaminant reads
-                       compress= compress_output,              # Output files are compressed
+                       rm.phix= contaminants,                  # Remove contaminant reads
+                       compress= compress,                     # Output files are compressed
                        multithread = T)                        # On Windows set multithread = FALSE
   
   saveRDS(out, file.path(path.filt, 'Filtered_Trimmed_Logfile.rds'))
@@ -1099,7 +1137,7 @@ if((reference == T | boldigger == T) & length(paths) > 0){
   }
   
   if(fuse){
-    cat('\n[Merging]\n')
+    cat('\n[Merging]\n\n')
       
       # Source the taxonomic table merging script
       source(file.path(dirname(pipeline_path), 'dependencies/TaxTableMerger.R'))
