@@ -65,6 +65,5 @@ Please find below the list of references that are relevant to ReefPipe:
 
 * <sup>1</sup> Callahan, B. (s.a.). DADA2 Pipeline Tutorial (1.16). https://benjjneb.github.io/dada2/tutorial.html
 * <sup>2</sup> Sievers, F., Wilm, A., Dineen, D., Gibson, T. J., Karplus, K., Li, W., . . . Söding, J. (2011). Fast, scalable generation of high‐quality protein multiple sequence alignments using Clustal Omega. Molecular Systems Biology, 7(1), 539. https://doi.org/10.1038/msb.2011.75 
-http://www.reference-midori.info/index.html
 
 Please refer to these references for further reading and to understand the underlying concepts and methodologies used in ReefPipe.
