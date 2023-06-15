@@ -57,7 +57,7 @@ parser$add_argument('-e', '--environment', type = 'character', choices = c('linu
 
 # Optional command line arguments
 parser$add_argument('-T', '--taxlevels', type = 'character', default = 'Phylum,Class,Order,Family,Genus,Species', help = 'The taxonomic levels present in the taxonomic tables. Default levels are Phylum,Class,Order,Family,Genus,Species.')
-parser$add_argument('-s', '--similarity', type = 'numeric', required = FALSE, default = 97, help = 'The percentage similarity to cluster sequences.')
+parser$add_argument('-s', '--similarity', type = 'numeric', required = FALSE, default = 97, help = 'The percentage similarity to cluster sequences.Default is 97.')
 
 # Parse the arguments
 args <- parser$parse_args()
@@ -185,7 +185,7 @@ for(path.result in paths.result){
   } else if(envir == 'windows'){exec <- file.path(dirname(pipeline_path), 'dependencies/clustal-omega-1.2.2-win64/clustalo.exe')
   } else if(envir == 'mac'){exec <- file.path(dirname(pipeline_path), 'dependencies/clustal-omega-1.2.3-macosx')}
   
-  result <- system2(command = 'python', args = c(paste0("\"", file.path(dirname(pipeline_path), 'dependencies/MSA.py'), "\""), 
+  result <- system2(command = 'python3', args = c(paste0("\"", file.path(dirname(pipeline_path), 'dependencies/MSA.py'), "\""), 
                                                  '-m', paste0("\"", path.multifasta, "\""), 
                                                  '-o', paste0("\"", path.output, "\""), 
                                                  '-e', envir, 
@@ -372,7 +372,7 @@ for(path.result in paths.result){
   step <- step + 1
   cat(paste0(label, step, '] Getting sample information from ENA\n'))
   
-  system2(command = 'python', args = c(paste0("\"", file.path(dirname(pipeline_path), 'dependencies/location.py'), "\""), 
+  system2(command = 'python3', args = c(paste0("\"", file.path(dirname(pipeline_path), 'dependencies/location.py'), "\""), 
                                        '-o', paste0("\"", file.path(path.output, 'samples.xlsx'), "\""), 
                                        '-e', paste(sample_names, collapse = ',')))
   
