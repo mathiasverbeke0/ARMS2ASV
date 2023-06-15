@@ -20,7 +20,7 @@ dna_seq <- dna(as.vector(dna_seq))
 
 # Cluster sequences based on similarity (>= 97%)
 clusters <- seq_cluster(x = dna_seq, threshold = 0.03, method = "single")
-
+cat(clusters)
 
 #############################################
 ## READ AND ALTER THE CONSENSUS EXCEL FILE ##
