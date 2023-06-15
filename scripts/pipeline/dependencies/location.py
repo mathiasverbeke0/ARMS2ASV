@@ -112,10 +112,10 @@ data = []
 
 for accession in accessions:
     lat, lon, region, collection_date, title = get_coordinates(accession)
-    data.append([lat, lon, region, collection_date, title])
+    data.append([accession, lat, lon, region, collection_date, title])
 
-df = pd.DataFrame(data, columns=['lat', 'long', 'region', 'collection_date', 'title'], index=accessions)
+df = pd.DataFrame(data, columns=['sample', 'lat', 'long', 'region', 'collection_date', 'title'])
 
 # Write the DataFrame to an Excel file
 
-df.to_excel(args.output)
+df.to_excel(args.output, index = False)
