@@ -656,7 +656,7 @@ for(iter in 1:length(paths)){
                        multithread = T)                        # On Windows set multithread = FALSE
   
   saveRDS(out, file.path(path.filt, 'Filtered_Trimmed_Logfile.rds'))
-  ??filterAndTrim
+  
   
   ####################################################
   ## INSPECT READ QUALITY PROFILES OF TRIMMED READS ##
