@@ -656,7 +656,7 @@ for(iter in 1:length(paths)){
                        multithread = T)                        # On Windows set multithread = FALSE
   
   saveRDS(out, file.path(path.filt, 'Filtered_Trimmed_Logfile.rds'))
-  
+  ??filterAndTrim
   
   ####################################################
   ## INSPECT READ QUALITY PROFILES OF TRIMMED READS ##
@@ -847,6 +847,15 @@ for(iter in 1:length(paths)){
   } else {
     main.seqtab <- mergeSequenceTables(main.seqtab, seqtab)
   }
+  
+  # Make a read output file
+  getN <- function(x){sum(getUniques(x))}
+  track <- cbind(out, sapply(dadaFwd, getN), sapply(dadaRev, getN), sapply(mergers, getN), rowSums(seqtab))
+  
+  colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "seqtab")
+  rownames(track) <- sample.names
+  
+  write.table(x = track, file = file.path(paths[iter], 'summary.txt'))
   
   # Remove the unfiltered .fastq.gz files
   unlink(c(FwdRead, RevRead))
