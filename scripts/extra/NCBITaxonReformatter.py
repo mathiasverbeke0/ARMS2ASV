@@ -102,6 +102,6 @@ with open(args.input, "r") as in_file, open(args.output, "w") as out_file:
                 n+= 1
 
             # Write a backup description line and corresponding sequence to output file
-            out_file.write(f'>{";".join(["NCBI", "failed", "to", "find", "lineage", two_word_string[0]])}\n{sequence}\n')
+            out_file.write(f'>{";".join(["NCBI", "failed", "to", "find", "lineage", two_word_string[0]])};\n{sequence}\n')
 
 print(f'\nSequences: {s}\nLineages not found: {l} ({round((l/s)*100,2)}%)\nSpecies not found: {n}  ({round((n/s)*100,2)}%)')
