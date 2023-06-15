@@ -53,7 +53,7 @@ for(item in ToInstall){
       options("BioC_mirror" = "https://bioconductor.org")
       
       # Install package
-      BiocManager::instal(item)
+      BiocManager::install(item)
     }
     
     else{
@@ -80,13 +80,23 @@ parser <- ArgumentParser(description = 'Reefpipe command line arguments')
 parser$add_argument('-b', '--base_dir', metavar = 'BASEDIR', type = 'character', required = TRUE, help = 'The base directory path for the analysis.')
 parser$add_argument('-d', '--download', metavar = 'FILENAME', required = FALSE, help = 'Download data from ENA for the given accessions listed in FILENAME.')
 parser$add_argument('-r', '--run_mode', choices = c('single', 'multi'), required = TRUE, help = 'Specify whether to run the script for a single or multiple sequencing runs. Select \'single\' for analyzing a single run and \'multi\' for analyzing multiple runs.')
+parser$add_argument('-g', '--gene', choices = c('COI', 'ITS'), required = TRUE, help = 'Specify the gene to analyze.')
 
-# Command line arguments for preprocessing
+# Command line arguments for filtering and trimming
 parser$add_argument('-t', '--trim_primers', action = 'store_true', help = 'Trim primers with Cutadapt. By default, primers are not trimmed.')
 parser$add_argument('-p', '--primers', nargs=2, type='character', metavar=c('Fwd_Primer', 'Rev_Primer'), help='Forward and reverse primer sequences for trimming.')
 parser$add_argument('-s', '--singleton', action = 'store_false', help = 'Keep singletons in the sequence table. By default, singletons are removed (except when only one sample is analyzed).')
 parser$add_argument('-m', '--minlen', type='integer', metavar='minlen', default=50, help='The minimum length threshold for the trimmed reads. Default is 50.')
 parser$add_argument('-l', '--trunclen', nargs=2, type='integer', metavar=c('Fwd', 'Rev'), default=c(200,140), help='The maximum length for trimmed reads. Default truncation lengths are 200 bases for forward reads and 140 bases for reverse reads.')
+parser$add_argument('-n', '--max_ambiguous', type='integer', default=0, help='Maximum number of ambiguous reads allowed.')
+parser$add_argument('-e', '--max_error_rates', nargs=2, type='numeric', metavar=c('Fwd', 'Rev'), default=c(2, 4), help='Maximum error rates for forward and reverse reads.')
+parser$add_argument('-q', '--min_quality_score', type='integer', default=2, help='Minimum quality score that each base should have.')
+parser$add_argument('-x', '--remove_contaminants', action='store_false', help='Do not remove contaminant reads during filtering and trimming.')
+parser$add_argument('-c', '--compress_output', action='store_false', help='Do not compress the output files.')
+
+# Command line arguments for merging pairs
+parser$add_argument('-o', '--min_overlap', type='integer', default=10, help='Minimum overlap length required for merging pairs.')
+parser$add_argument('-i', '--max_mismatch', type='integer', default=1, help='Maximum number of mismatches allowed during merging.')
 
 # Command line arguments for taxonomic classification
 parser$add_argument('-B', '--BOLDigger', action = 'store_true', help = 'Perform taxonomic classification using BOLDigger.')
@@ -118,6 +128,14 @@ reference <- args$reference
 minBoot <- args$minBoot
 fuse <- args$fuse
 fuseLevels <- args$fuseLevels
+max_ambiguous <- args$max_ambiguous
+max_error_rates <- args$max_error_rates
+min_quality_score <- args$min_quality_score
+remove_contaminants <- args$remove_contaminants
+compress_output <- args$compress_output
+min_overlap <- args$min_overlap
+max_mismatch <- args$max_mismatch
+GOI <- args$gene
 
 
 ####################################
@@ -251,20 +269,20 @@ if(run_mode == 'multi'){
     if (any(!is_match)){
       cat('\n')
       stop(paste(path, 
-                 'includes files other than being _1.fastq or _2.fastq files.', 
+                 'includes files other than being _1.fastq, _2.fastq, _1.fastq.gz or _2.fastq.gz files.', 
                  '\nPlease ensure that the base directory you are using only contains directories with exclusively fastq files if you are using the multi-option or downloading fastq files from ENA through this pipeline.',
                  '\n\nExample:',
                  '\nbase/',
                  '\n├── ENA_accessions.txt',
                  '\n├── SequencingRun1/',
-                 '\n│   ├── sample1_1.fastq',
-                 '\n│   └── sample1_2.fastq',
+                 '\n│   ├── sample1_1.fastq.gz',
+                 '\n│   └── sample1_2.fastq.gz',
                  '\n├── SequencingRun2/',
-                 '\n│   ├── sample2_1.fastq',
-                 '\n│   └── sample2_2.fastq',
+                 '\n│   ├── sample2_1.fastq.gz',
+                 '\n│   └── sample2_2.fastq.gz',
                  '\n└── SequencingRun3/',
-                 '\n    ├── sample3_1.fastq',
-                 '\n    └── sample3_2.fastq\n\n'))
+                 '\n    ├── sample3_1.fastq.gz',
+                 '\n    └── sample3_2.fastq.gz\n\n'))
     }
   }
 }
@@ -365,8 +383,8 @@ for(iter in 1:length(paths)){
                                    REV.argument, # Define the reverse read
                                    '-m 1',   # Only keep reads with a minimal length of 1,
                                    # '--discard-untrimmed',
-                                   '-o', FwdRead.cut[i], '-p', RevRead.cut[i], # output files
-                                   FwdRead[i], RevRead[i])) # input files
+                                   '-o', paste0("\"", FwdRead.cut[i], "\""), '-p', paste0("\"",RevRead.cut[i], "\""), # output files
+                                   paste0("\"", FwdRead[i], "\""), paste0("\"", RevRead[i], "\""))) # input files
     }
   }
   
@@ -470,18 +488,18 @@ for(iter in 1:length(paths)){
   names(RevRead.filt) <- sample.names
   
   # Trim the prefiltered reads
-  out <- filterAndTrim(FwdRead.cut,    # Input files forward reads
-                       FwdRead.filt,   # Output files forward reads
-                       RevRead.cut,    # Input files reverse reads
-                       RevRead.filt,   # Output files reverse reads
-                       truncLen=trunclen,   # Max length of the reads (F will be truncated to 200, reverse to 140)
-                       maxN=0,              # Amount of ambiguous reads that are allowed
-                       maxEE=c(2,4),        # Maximum error rates for F and R read
-                       truncQ=2,            # Minimum quality score that each base should have
-                       minLen = minlen,     # Minimum length of the reads after trimming
-                       rm.phix=TRUE,        # Remove contaminant reads
-                       compress=TRUE,       # Output files are compressed
-                       multithread = T)     # On Windows set multithread = FALSE
+  out <- filterAndTrim(FwdRead.cut,                            # Input files forward reads
+                       FwdRead.filt,                           # Output files forward reads
+                       RevRead.cut,                            # Input files reverse reads
+                       RevRead.filt,                           # Output files reverse reads
+                       truncLen= trunclen,                     # Max length of the reads (F will be truncated to 200, reverse to 140)
+                       maxN= max_ambiguous,                    # Amount of ambiguous reads that are allowed
+                       maxEE= max_error_rates,                 # Maximum error rates for F and R read
+                       truncQ= min_quality_score,              # Minimum quality score that each base should have
+                       minLen = minlen,                        # Minimum length of the reads after trimming
+                       rm.phix= remove_contaminants,           # Remove contaminant reads
+                       compress= compress_output,              # Output files are compressed
+                       multithread = T)                        # On Windows set multithread = FALSE
   
   saveRDS(out, file.path(path.filt, 'Filtered_Trimmed_Logfile.rds'))
   
@@ -554,22 +572,26 @@ for(iter in 1:length(paths)){
   errF <- learnErrors(FwdRead.filt, multithread=TRUE)
   errR <- learnErrors(RevRead.filt, multithread=TRUE)
   
+   
+  
   # Construct and store the error plots
-  pdf(file = file.path(path.error, paste0(sample.names[1], '.pdf')))
+  suppressWarnings({
+    pdf(file = file.path(path.error, paste0(sample.names[1], '.pdf')))
+      
+      # Error plots for forward reads
+      show(plotErrors(errF, nominalQ=TRUE) +
+             ggtitle('Forward') + 
+             theme(plot.title = element_text(hjust = 0.5)))
+      
+      # Error plots for reverse reads
+      show(plotErrors(errR, nominalQ=TRUE)+
+             ggtitle('Reverse') + 
+             theme(plot.title = element_text(hjust = 0.5)))
     
-    # Error plots for forward reads
-    show(plotErrors(errF, nominalQ=TRUE) +
-           ggtitle('Forward') + 
-           theme(plot.title = element_text(hjust = 0.5)))
-    
-    # Error plots for reverse reads
-    show(plotErrors(errR, nominalQ=TRUE)+
-           ggtitle('Reverse') + 
-           theme(plot.title = element_text(hjust = 0.5)))
-  
     dev.off()
+  })
   
-  
+    
   ######################
   ## SAMPLE INFERENCE ##
   ######################
@@ -596,7 +618,7 @@ for(iter in 1:length(paths)){
   saveRDS(dadaFwd, file.path(path.infer, 'dadaFwd.rds'))
   saveRDS(dadaRev, file.path(path.infer, 'dadaRev.rds'))
   
-  
+
   ########################
   ## MERGE PAIRED READS ##
   ########################
@@ -614,7 +636,13 @@ for(iter in 1:length(paths)){
   }
   
   # Merge the paired reads
-  mergers <- mergePairs(dadaFwd, FwdRead.filt, dadaRev, RevRead.filt, minOverlap = 10, maxMismatch = 1, verbose=T)
+  mergers <- mergePairs(dadaFwd, 
+                        FwdRead.filt, 
+                        dadaRev, 
+                        RevRead.filt, 
+                        minOverlap = min_overlap, 
+                        maxMismatch = max_mismatch, 
+                        verbose=T)
 
   # Write mergers object to an rds file
   saveRDS(mergers, file.path(path.merge, 'mergers.rds'))
@@ -628,7 +656,7 @@ for(iter in 1:length(paths)){
   step <- step + 1
   cat(paste0(label, step, '] Constructing sequence tables\n'))
   
-  # Make directory path to store COI ASV sequences
+  # Make directory path to store GOI ASV sequences
   path.seq <- file.path(paths[iter], '06.Seq_Table')
   
   if(!dir.exists(path.seq)){
@@ -718,12 +746,12 @@ for(iter in 1:length(paths)){
   asv_fasta <- c(rbind(asv_headers, asv_seqs))
   
   # Write ASV sequences and headers to a text (i.e. multifasta) and rds file
-  write(asv_fasta, file.path(path.seq, 'COI_ASVS.fasta'))
+  write(asv_fasta, file.path(path.seq, paste0(GOI, '_ASVS.fasta')))
   saveRDS(seqtab.nochim, file.path(path.seq, 'seqtab.rds'))
   
   if(boldigger){
     # Write second ASV multifasta file (-> For compatibility with Windows)
-    write(asv_fasta, file.path(path.seq, 'COI_ASVS2.fasta'))
+    write(asv_fasta, file.path(path.seq, paste0(GOI, '_ASVS2.fasta')))
   }
   
   #####################
@@ -755,7 +783,7 @@ for(iter in 1:length(paths)){
   cat('\n\n')
 }
 
-warnings()
+
 ##############################
 ## TAXONOMIC CLASSIFICATION ##
 ##############################
@@ -771,11 +799,11 @@ if((reference == T | boldigger == T) & length(paths) > 0){
  \\__\\__,_/_/\\_\\\n\n')
   
   # Get paths to ASV multifasta files
-  paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS.fasta')    # To avoid potential errors in Windows, 
-  paths.ASV2 <- file.path(paths, '06.Seq_Table/COI_ASVS2.fasta')  # 2 identical multifasta files are used.
+  paths.ASV <- file.path(paths, paste0('06.Seq_Table/', GOI, '_ASVS.fasta'))    # To avoid potential errors in Windows, 
+  paths.ASV2 <- file.path(paths, paste0('06.Seq_Table/', GOI,'_ASVS2.fasta'))  # 2 identical multifasta files are used.
   
-  # Get paths to transformed ASV multifasta files (BOLDigger renames the used multifasta files to COI_ASVS2_done.fasta)
-  boldigger.paths.ASV <- file.path(paths, '06.Seq_Table/COI_ASVS2_done.fasta')
+  # Get paths to transformed ASV multifasta files (BOLDigger renames the used multifasta files to GOI_ASVS2_done.fasta)
+  boldigger.paths.ASV <- file.path(paths, paste0('06.Seq_Table/', GOI, '_ASVS2_done.fasta'))
   
   # Construct paths to directories where taxonomy files will be stored
   paths.taxon <- file.path(paths, '07.Taxonomy')
@@ -837,8 +865,14 @@ if((reference == T | boldigger == T) & length(paths) > 0){
       path.ASV2 <- paths.ASV2[iter]
       boldigger.path.ASV <- boldigger.paths.ASV[iter]
       
+      # Specify the GOI BOLDigger command line argument
+      if(GOI == 'COI'){
+        bold_argument <- 'ie_coi'
+      } else if(GOI == 'ITS'){
+        bold_argument <- 'ie_its'}
+      
       # Execute the BOLDigger command line tool: find top 20 hits
-      system2(command = 'boldigger-cline', args = c('ie_coi', 
+      system2(command = 'boldigger-cline', args = c(bold_argument, 
                                                     user, 
                                                     password, 
                                                     path.ASV2, 
