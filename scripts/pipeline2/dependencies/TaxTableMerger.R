@@ -43,10 +43,10 @@ if (boldigger ==T){
   bold_taxa$source <- 'BOLDSYSTEMS'
   
   # Replace all NA values in similarity column with 0
-  bold_taxa[is.na(bold_taxa$Similarity), 8] <- 0
+  bold_taxa[is.na(bold_taxa$Similarity), 'Similarity'] <- 0
   
   # Nullify all taxonomies where similarity is less than 97% (= species level)
-  bold_taxa[as.numeric(bold_taxa$Similarity) < 97, 2:9] <- NA
+  bold_taxa[as.numeric(bold_taxa$Similarity) < 97, 2:(3 + length(fuseLevels2))] <- NA
   
   # Remove the BOLDSYSTEMS directory path
   bold_index <- grepl(pattern = bold_dir, x = tax_files)
