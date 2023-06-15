@@ -15,7 +15,7 @@ if('Genus' %in% fuseLevels2 & 'Species' %in% fuseLevels2){
 #######################################
 
 # Get a list of all the taxonomic files (excel) within the 07.Taxonomy subdirectories
-tax_files <- list.files(path.taxon, pattern = "\\.xlsx$", recursive = TRUE, full.names = TRUE)
+tax_files <- normalizePath(list.files(path.taxon, pattern = "\\.xlsx$", recursive = TRUE, full.names = TRUE), winslash = '/')
 
 # Ignore previously generated excel files upon rerunning script in the same parent folder
 tax_files <- tax_files[!basename(tax_files) %in% c('Ambiguous.xlsx', 'Consensus.xlsx')]
@@ -28,13 +28,16 @@ tax_files <- tax_files[!basename(tax_files) %in% c('Ambiguous.xlsx', 'Consensus.
 # If the BOLDSYSTEMS directory exists, load the taxonomic file
 if (boldigger ==T){
   
-  bold_dir <- file.path(path.taxon, 'BOLDSYSTEMS')
+  bold_dir <- normalizePath(file.path(path.taxon, 'BOLDSYSTEMS'), winslash = '/')
   
   # Get the BOLDSYSTEMS taxonomic file path
   bold_file <- list.files(bold_dir, pattern = "\\.xlsx$", full.names = TRUE)
   
   # Read in the BOLDSYSTEMS taxonomic file
   bold_taxa <- read_xlsx(bold_file, sheet = 'Sheet1')[,c("ID", fuseLevels2, "Similarity")]
+  
+  # Change the > symbol from the ASV ID (Windows compatibility)
+  bold_taxa$ID <- gsub(pattern = '^&gt;', replacement = '>', bold_taxa$ID)
   
   # Add the source
   bold_taxa$source <- 'BOLDSYSTEMS'
@@ -238,7 +241,6 @@ if(boldigger == T & reference == T){
     
     # ASV ID
     ASV_ID <- sub("^(>|&gt;)", "", bold_taxa$ID[row])
-    print(ASV_ID)
     
     # Check if the ASV ID is ambiguous in reference taxonomic tables
     if(ASV_ID %in% unique(ambiguous$ID)){
