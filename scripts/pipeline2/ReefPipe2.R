@@ -1,46 +1,44 @@
 #!/usr/bin/env Rscript
 
-############################
-## DOWNLOADING R PACKAGES ##
-############################
+#############
+## MESSAGE ##
+#############
 
-cat('\n _ _ _     
-| (_) |__  
-| | | \'_ \\ 
-| | | |_) |
-|_|_|_.__/ \n')
+cat(' ____  _____ _____ _____ ____ ___ ____  _____
+|  _ \\| ____| ____|  ___|  _ |_ _|  _ \\| ____|
+| |_) |  _| |  _| | |_  | |_) | || |_) |  _|   
+|  _ <| |___| |___|  _| |  __/| ||  __/| |___  
+|_| \\_|_____|_____|_|   |_|  |___|_|   |_____|\n\n')
 
-cat('\nInstalling and loading all packages\n')
 
-pkg <- installed.packages()[,'Package']
+###############
+## FUNCTIONS ##
+###############
 
-ToInstall <- c(
-  'BiocManager',
-  'argparse',
-  'Biostrings',
-  'bioseq',
-  'openxlsx',
-  'dplyr',
-  'progress',
-  'stringr',
-  'dplyr', 
-  'purrr'
-)
-
-for (item in ToInstall){
-  if(!item %in% pkg & item %in% c('Biostrings')){
-    BiocManager::install(item)
-  }
+# Print header
+print_header <- function(number){
+  headers <- c("\n _ _ _     \n| (_) |__  \n| | | \'_ \\ \n| | | |_) |\n|_|_|_.__/ \n\nInstalling and loading all packages\n",
+               "\n ___ _   _ _ __  _ __  \n/ __| | | | '_ \\| '_ \\ \n\\__ \\ |_| | |_) | |_) |\n|___/\\__,_| .__/| .__/ \n          | |   | |    \n          |_|   |_|    \n\n")
   
-  else if(!item %in% pkg) {
-    # Set the CRAN mirror
-    options(repos = "https://cran.rstudio.com/")
+  cat(headers[number])}
+
+# Download and load R packages
+install_and_load_packages <- function(packages) {
+  installed_packages <- installed.packages()[, 'Package']                   # Summarize all installed packages
+  
+  for (package in packages) {
+    if (!(package %in% installed_packages)) {                               # If package not installed
+      if (package %in% c('Biostrings')) {     
+        options("BioC_mirror" = "https://bioconductor.org")                 # Set the Bioconductor image
+        BiocManager::install(package)                                       # Install package with BiocManager
+      } else {                                                      
+        options(repos = "https://cran.rstudio.com/")                        # Set the cran mirror
+        install.packages(package)                                           # Install package
+      }
+    }
     
-    # Install package
-    install.packages(item)
+    suppressPackageStartupMessages(library(package, character.only = TRUE)) # Silently load package
   }
-  
-  suppressPackageStartupMessages(library(item, character.only = T))
 }
 
 
@@ -48,7 +46,9 @@ for (item in ToInstall){
 ## PARSING COMMAND LINE ARGUMENTS ##
 ####################################
 
-parser <- ArgumentParser(description = 'Reefpipe2 command line arguments')
+install_and_load_packages(c('argparse', 'stringr'))
+
+parser <- ArgumentParser(description = 'Reefpipe2.R command line arguments')
 
 # Mandatory command line arguments
 parser$add_argument('-b', '--base_dir', metavar = 'BASEDIR', type = 'character', required = TRUE, help = 'The base directory path for the analysis.')
@@ -70,9 +70,19 @@ taxlevels <- gsub(' ', '', str_to_title(strsplit(args$taxlevels, ",")[[1]]))
 envir <- args$environment
 
 
-####################################
-## ABSOLUTE PATH OF MAIN WORKFLOW ##
-####################################
+################
+## R PACKAGES ##
+################
+
+print_header(1)
+
+# Install and load
+install_and_load_packages(c('BiocManager','Biostrings','bioseq','openxlsx','dplyr','progress','dplyr','purrr'))
+
+
+#########################
+## MAIN PIPELINE PATH ##
+########################
 
 args <- commandArgs()
 pipeline_path <- NULL
@@ -103,6 +113,8 @@ if(length(paths.result) == 0){
 }
 
 iter <- 1
+
+print_header(2)
 
 for(path.result in paths.result){
   
